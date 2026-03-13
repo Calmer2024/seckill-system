@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import bcrypt
 from jose import jwt, JWTError
+from fastapi.middleware.cors import CORSMiddleware
 
 # 导入我们刚才写的模块
 import models
@@ -48,6 +49,17 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
+# ================= 新增：配置跨域资源共享 (CORS) =================
+app.add_middleware(
+    CORSMiddleware,
+    # 允许的跨域来源，开发阶段为了方便先写 "*" (允许所有)，生产环境要改成前端的真实域名
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"], # 允许所有的 HTTP 方法 (GET, POST 等)
+    allow_headers=["*"], # 允许所有的请求头
+)
+# =========================================================
 
 # ================= API 路由接口 =================
 
