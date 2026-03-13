@@ -1,0 +1,22 @@
+# Python 虚拟环境 (防各个微服务的venv)
+venv/
+.venv/
+env/
+
+# 环境变量与机密文件 (防数据库密码泄露)
+.env
+*.env
+.env.*
+
+# 编译缓存文件
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE 配置文件
+.idea/
+.vscode/
+
+# 操作系统自动生成的文件
+.DS_Store
+Thumbs.db
