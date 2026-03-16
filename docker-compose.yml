@@ -1,0 +1,52 @@
+services:
+  # 1. 基础设施：MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: seckill_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: seckill_db
+    ports:
+      - "3307:3306"
+
+  # 2. 基础设施：Redis 缓存
+  redis:
+    image: redis:alpine
+    container_name: seckill_redis
+    ports:
+      - "6379:6379"
+
+  # 3. 微服务：用户服务 (负责登录注册)
+  user_service:
+    build: ./user_service
+    container_name: seckill_user
+    depends_on:
+      - mysql
+
+  # 4. 微服务：商品服务实例 1 (参与负载均衡)
+  product_service_1:
+    build: ./product_service
+    container_name: seckill_product_1
+    depends_on:
+      - redis
+
+  # 5. 微服务：商品服务实例 2 (参与负载均衡)
+  product_service_2:
+    build: ./product_service
+    container_name: seckill_product_2
+    depends_on:
+      - redis
+
+  # 6. 网关层：前端与 Nginx 网关
+  frontend_nginx:
+    build: ./frontend
+    container_name: seckill_nginx
+    ports:
+      - "80:80"   # 你在浏览器里访问 http://localhost 的入口
+    volumes:
+      # 【核心魔法】用我们刚写的网关配置，去覆盖前端容器里 Nginx 默认的配置
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - user_service
+      - product_service_1
+      - product_service_2
