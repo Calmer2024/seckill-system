@@ -29,6 +29,8 @@ services:
     container_name: seckill_product_1
     depends_on:
       - redis
+    volumes:
+      - ./product_service:/app
 
   # 5. 微服务：商品服务实例 2 (参与负载均衡)
   product_service_2:

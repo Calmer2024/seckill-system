@@ -28,8 +28,19 @@ Base.metadata.create_all(bind=engine)
 # ================= 3. 微服务初始化 =================
 app = FastAPI(title="Product Service", description="真实的商品微服务")
 
-# 连接 Redis (host 改为 docker-compose 里的服务名 'redis')
-redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
+# 1. 创建 Redis 连接池
+# max_connections: 池子里最多能装多少个连接。比如 100 个，第 101 个请求来了就得排队等别人还回来。
+# timeout: 建立连接的超时时间，防止网络卡顿导致程序一直死等。
+pool = redis.ConnectionPool(
+    host='redis',
+    port=6379,
+    decode_responses=True,
+    max_connections=200,
+    timeout=5
+)
+
+# 2. 让 Redis 客户端使用这个连接池去拿连接
+redis_client = redis.Redis(connection_pool=pool)
 
 
 # 依赖注入：获取数据库 Session
