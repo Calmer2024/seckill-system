@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: seckill_mysql
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: 418124
       MYSQL_DATABASE: seckill_db
     ports:
       - "3307:3306"

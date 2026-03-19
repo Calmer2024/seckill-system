@@ -13,3 +13,6 @@ python-jose[cryptography]==3.3.0
 
 # 异步请求（用于服务间通信）
 httpx==0.27.2
+
+bcrypt
+passlib[bcrypt]
