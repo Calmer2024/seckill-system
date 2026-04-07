@@ -14,11 +14,10 @@ const http = axios.create({
 // 2. 请求拦截器 (可以在这里统一携带 Token)
 http.interceptors.request.use(
   (config) => {
-    // 商业级扩展：如果本地存有 Token，自动附加到请求头
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {

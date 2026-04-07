@@ -1,5 +1,4 @@
 services:
-  # 1. 基础设施：MySQL 主库
   mysql-primary:
     image: mysql:8.0
     container_name: seckill_mysql_primary
@@ -22,7 +21,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # 2. 基础设施：MySQL 从库
   mysql-replica:
     image: mysql:8.0
     container_name: seckill_mysql_replica
@@ -65,7 +63,6 @@ services:
       - ./infra/mysql/scripts/setup-replica.sh:/setup-replica.sh:ro
     entrypoint: ["/bin/sh", "/setup-replica.sh"]
 
-  # 3. 基础设施：Redis 缓存
   redis:
     image: redis:alpine
     container_name: seckill_redis
@@ -77,7 +74,48 @@ services:
       timeout: 5s
       retries: 10
 
-  # 4. 微服务：用户服务 (负责登录注册)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: seckill_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: seckill_kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  shardingsphere-proxy:
+    build: ./infra/shardingsphere
+    container_name: seckill_shardingsphere_proxy
+    ports:
+      - "3309:3307"
+    depends_on:
+      mysql-primary:
+        condition: service_healthy
+
   user_service:
     build: ./user_service
     container_name: seckill_user
@@ -87,7 +125,6 @@ services:
       mysql-primary:
         condition: service_healthy
 
-  # 5. 微服务：商品服务实例 1 (参与负载均衡)
   product_service_1:
     build: ./product_service
     container_name: seckill_product_1
@@ -103,7 +140,6 @@ services:
       mysql-replica-init:
         condition: service_completed_successfully
 
-  # 6. 微服务：商品服务实例 2 (参与负载均衡)
   product_service_2:
     build: ./product_service
     container_name: seckill_product_2
@@ -119,16 +155,54 @@ services:
       mysql-replica-init:
         condition: service_completed_successfully
 
-  # 7. 网关层：前端与 Nginx 网关
+  order_service:
+    build: ./order_service
+    container_name: seckill_order_service
+    environment:
+      ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
+      PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET_KEY: fallback_secret_key_for_dev
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
+      shardingsphere-proxy:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+
+  order_worker:
+    build: ./order_service
+    container_name: seckill_order_worker
+    command: ["python", "-m", "app.worker"]
+    environment:
+      ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
+      PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET_KEY: fallback_secret_key_for_dev
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
+      shardingsphere-proxy:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+
   frontend_nginx:
     build: ./frontend
     container_name: seckill_nginx
     ports:
-      - "80:80"   # 你在浏览器里访问 http://localhost 的入口
+      - "80:80"
     volumes:
-      # 用我们刚写的网关配置，去覆盖前端容器里 Nginx 默认的配置
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - user_service
       - product_service_1
       - product_service_2
+      - order_service

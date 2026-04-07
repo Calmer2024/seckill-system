@@ -1,0 +1,14 @@
+mode:
+  type: Standalone
+  repository:
+    type: JDBC
+
+authority:
+  users:
+    - user: root@%
+      password: root
+  privilege:
+    type: ALL_PERMITTED
+
+props:
+  sql-show: true

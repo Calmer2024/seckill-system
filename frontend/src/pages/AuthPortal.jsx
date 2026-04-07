@@ -12,6 +12,7 @@ const AuthPortal = () => {
   const [successMsg, setSuccessMsg] = useState(''); // 用于注册成功的提示
   
   const navigate = useNavigate();
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
   // 核心提交逻辑：同时处理登录和注册
   const handleSubmit = async (e) => {
@@ -24,7 +25,7 @@ const AuthPortal = () => {
       // 动态判断调用哪个后端接口
       const endpoint = isLoginMode ? '/api/users/login' : '/api/users/register';
       
-      const response = await fetch(`http://127.0.0.1:8001${endpoint}`, {
+      const response = await fetch(`${apiBaseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

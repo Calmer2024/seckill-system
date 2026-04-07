@@ -1,0 +1,53 @@
+databaseName: order_db
+
+dataSources:
+  ds_0:
+    url: jdbc:mysql://mysql-primary:3306/order_db_0?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 418124
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+  ds_1:
+    url: jdbc:mysql://mysql-primary:3306/order_db_1?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 418124
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+
+rules:
+  - !SHARDING
+    tables:
+      t_order:
+        actualDataNodes: ds_${0..1}.t_order_${0..1}
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: order_database_inline
+        tableStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: order_table_inline
+      t_user_purchase_record:
+        actualDataNodes: ds_${0..1}.t_user_purchase_record
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: order_database_inline
+    shardingAlgorithms:
+      order_database_inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${user_id % 2}
+      order_table_inline:
+        type: INLINE
+        props:
+          algorithm-expression: t_order_${order_id % 2}
+
+props:
+  sql-show: true
