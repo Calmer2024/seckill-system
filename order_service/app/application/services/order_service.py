@@ -1,77 +1,41 @@
 import json
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-import redis
+import httpx
 from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer
 from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
-from sqlalchemy import select, update
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.application.dto.order_dto import OrderEvent, SeckillOrderAcceptedResponse, SeckillOrderRequest
+from app.application.dto.order_dto import (
+    InventoryResultEvent,
+    OrderCreatedEvent,
+    PaymentAcceptedResponse,
+    PaymentRequest,
+    PaymentRequestedEvent,
+    SeckillOrderAcceptedResponse,
+    SeckillOrderRequest,
+)
 from app.core.config import settings
 from app.core.exceptions.business_exception import BusinessException
 from app.core.security import CurrentUser
 from app.infrastructure.logging.logger import get_logger
-from app.models.order import Order, UserPurchaseRecord
+from app.models.order import Order, OrderOutboxEvent, PaymentRecord, UserPurchaseRecord
 from app.models.product import Product
 
 
 logger = get_logger(__name__)
 
-RESERVE_STOCK_SCRIPT = """
-local stock_key = KEYS[1]
-local user_key = KEYS[2]
-local status_key = KEYS[3]
-local owner_key = KEYS[4]
-local quantity = tonumber(ARGV[1])
-local order_id = ARGV[2]
-local status = ARGV[3]
-local ttl = tonumber(ARGV[4])
+ACTIVE_ORDER_STATUSES = {"PENDING_INVENTORY", "CREATED", "PAYING", "PAID"}
 
-if redis.call('exists', user_key) == 1 then
-    return 2
-end
 
-local stock = redis.call('get', stock_key)
-if not stock then
-    return -1
-end
-
-stock = tonumber(stock)
-if stock < quantity then
-    return 0
-end
-
-redis.call('decrby', stock_key, quantity)
-redis.call('set', user_key, order_id, 'EX', ttl)
-redis.call('set', status_key, status, 'EX', ttl)
-redis.call('set', owner_key, ARGV[5], 'EX', ttl)
-return 1
-"""
-
-RELEASE_RESERVATION_SCRIPT = """
-local user_key = KEYS[1]
-local stock_key = KEYS[2]
-local status_key = KEYS[3]
-local owner_key = KEYS[4]
-local order_id = ARGV[1]
-local quantity = tonumber(ARGV[2])
-local status = ARGV[3]
-local ttl = tonumber(ARGV[4])
-
-if redis.call('get', user_key) == order_id then
-    redis.call('del', user_key)
-    redis.call('incrby', stock_key, quantity)
-end
-
-redis.call('set', status_key, status, 'EX', ttl)
-redis.call('del', owner_key)
-return 1
-"""
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class SnowflakeIdGenerator:
@@ -107,106 +71,13 @@ class SnowflakeIdGenerator:
             )
 
 
-class StockCacheService:
-    def __init__(self, redis_client: redis.Redis) -> None:
-        self.redis_client = redis_client
-        self.reserve_script = redis_client.register_script(RESERVE_STOCK_SCRIPT)
-        self.release_script = redis_client.register_script(RELEASE_RESERVATION_SCRIPT)
+class ProductRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
-    @staticmethod
-    def stock_key(product_id: int) -> str:
-        return f"seckill:stock:{product_id}"
-
-    @staticmethod
-    def user_purchase_key(user_id: int, product_id: int) -> str:
-        return f"seckill:user:{user_id}:product:{product_id}"
-
-    @staticmethod
-    def order_status_key(order_id: int) -> str:
-        return f"seckill:order:status:{order_id}"
-
-    @staticmethod
-    def order_owner_key(order_id: int) -> str:
-        return f"seckill:order:owner:{order_id}"
-
-    def ensure_stock_loaded(self, product: Product) -> None:
-        key = self.stock_key(product.id)
-        if self.redis_client.exists(key):
-            return
-        self.redis_client.set(key, int(product.stock))
-
-    def reserve_stock(self, user_id: int, product_id: int, order_id: int, quantity: int) -> int:
-        return int(
-            self.reserve_script(
-                keys=[
-                    self.stock_key(product_id),
-                    self.user_purchase_key(user_id, product_id),
-                    self.order_status_key(order_id),
-                    self.order_owner_key(order_id),
-                ],
-                args=[
-                    quantity,
-                    str(order_id),
-                    "QUEUED",
-                    settings.SECKILL_RESERVATION_TTL_SECONDS,
-                    str(user_id),
-                ],
-            )
-        )
-
-    def release_reservation(self, user_id: int, product_id: int, order_id: int, quantity: int) -> None:
-        self.release_script(
-            keys=[
-                self.user_purchase_key(user_id, product_id),
-                self.stock_key(product_id),
-                self.order_status_key(order_id),
-                self.order_owner_key(order_id),
-            ],
-            args=[
-                str(order_id),
-                quantity,
-                "FAILED",
-                settings.ORDER_STATUS_TTL_SECONDS,
-            ],
-        )
-
-    def mark_success(self, user_id: int, product_id: int, order_id: int) -> None:
-        pipeline = self.redis_client.pipeline()
-        pipeline.set(
-            self.order_status_key(order_id),
-            "SUCCESS",
-            ex=settings.ORDER_STATUS_TTL_SECONDS,
-        )
-        pipeline.set(
-            self.user_purchase_key(user_id, product_id),
-            str(order_id),
-            ex=settings.ORDER_STATUS_TTL_SECONDS,
-        )
-        pipeline.set(
-            self.order_owner_key(order_id),
-            str(user_id),
-            ex=settings.ORDER_STATUS_TTL_SECONDS,
-        )
-        pipeline.execute()
-
-    def get_order_status(self, order_id: int) -> str | None:
-        return self.redis_client.get(self.order_status_key(order_id))
-
-    def get_order_owner(self, order_id: int) -> int | None:
-        owner = self.redis_client.get(self.order_owner_key(order_id))
-        return int(owner) if owner else None
-
-
-class KafkaOrderProducer:
-    def __init__(self) -> None:
-        self._producer = KafkaProducer(
-            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-            value_serializer=lambda value: json.dumps(value, ensure_ascii=False).encode("utf-8"),
-        )
-
-    def send(self, event: OrderEvent) -> None:
-        self._producer.send(settings.KAFKA_ORDER_TOPIC, event.model_dump(mode="json"))
-        self._producer.flush()
+    def get_product(self, product_id: int) -> Product | None:
+        statement = select(Product).where(Product.id == product_id)
+        return self.session.execute(statement).scalar_one_or_none()
 
 
 class OrderRepository:
@@ -223,61 +94,250 @@ class OrderRepository:
         statement = select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc())
         return list(self.session.execute(statement).scalars().all())
 
-    def find_by_user_and_product(self, user_id: int, product_id: int) -> Order | None:
+    def find_active_by_user_and_product(self, user_id: int, product_id: int) -> Order | None:
         statement = (
             select(Order)
-            .where(Order.user_id == user_id, Order.product_id == product_id)
+            .where(
+                Order.user_id == user_id,
+                Order.product_id == product_id,
+                Order.status.in_(ACTIVE_ORDER_STATUSES),
+            )
             .limit(1)
         )
         return self.session.execute(statement).scalar_one_or_none()
 
-    def create_order(self, event: OrderEvent) -> Order:
+    def create_pending_order_and_outbox(self, event: OrderCreatedEvent) -> None:
         order = Order(
             order_id=event.order_id,
             user_id=event.user_id,
             product_id=event.product_id,
             quantity=event.quantity,
             unit_price=event.unit_price,
-            total_amount=event.unit_price * event.quantity,
-            status="SUCCESS",
+            total_amount=event.total_amount,
+            status="PENDING_INVENTORY",
         )
-        purchase_record = UserPurchaseRecord(
+        outbox = OrderOutboxEvent(
+            aggregate_id=event.order_id,
             user_id=event.user_id,
-            product_id=event.product_id,
-            order_id=event.order_id,
+            topic=settings.KAFKA_ORDER_CREATED_TOPIC,
+            event_type="ORDER_CREATED",
+            payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+            status="NEW",
         )
-        self.session.add(purchase_record)
         self.session.add(order)
+        self.session.add(outbox)
         self.session.commit()
-        self.session.refresh(order)
-        return order
 
+    def request_payment(self, order: Order, amount: Decimal) -> tuple[str, str]:
+        payment = self.session.get(PaymentRecord, order.order_id)
+        if payment and payment.status == "SUCCESS":
+            if order.status != "PAID":
+                order.status = "PAID"
+                order.failure_reason = None
+                self.session.commit()
+            return order.status, payment.status
 
-class InventoryRepository:
-    def __init__(self, session: Session) -> None:
-        self.session = session
+        if payment and payment.status == "PROCESSING":
+            if order.status != "PAYING":
+                order.status = "PAYING"
+                self.session.commit()
+            return order.status, payment.status
 
-    def get_product(self, product_id: int) -> Product | None:
-        statement = select(Product).where(Product.id == product_id)
-        return self.session.execute(statement).scalar_one_or_none()
+        order.status = "PAYING"
+        order.failure_reason = None
+        if payment is None:
+            payment = PaymentRecord(
+                order_id=order.order_id,
+                user_id=order.user_id,
+                amount=amount,
+                status="PROCESSING",
+            )
+            self.session.add(payment)
+        else:
+            payment.amount = amount
+            payment.status = "PROCESSING"
 
-    def deduct_stock(self, product_id: int, quantity: int) -> bool:
-        statement = (
-            update(Product)
-            .where(Product.id == product_id, Product.stock >= quantity)
-            .values(stock=Product.stock - quantity)
+        event = PaymentRequestedEvent(order_id=order.order_id, user_id=order.user_id, amount=amount)
+        outbox = OrderOutboxEvent(
+            aggregate_id=order.order_id,
+            user_id=order.user_id,
+            topic=settings.KAFKA_PAYMENT_TOPIC,
+            event_type="PAYMENT_REQUESTED",
+            payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+            status="NEW",
         )
-        result = self.session.execute(statement)
-        if result.rowcount == 0:
-            self.session.rollback()
-            return False
+        self.session.add(outbox)
         self.session.commit()
-        return True
+        return order.status, payment.status
 
-    def restore_stock(self, product_id: int, quantity: int) -> None:
-        statement = update(Product).where(Product.id == product_id).values(stock=Product.stock + quantity)
-        self.session.execute(statement)
+    def mark_inventory_confirmed(self, payload: InventoryResultEvent) -> None:
+        order = self.get_by_order_id(payload.order_id)
+        if order is None:
+            self.session.rollback()
+            return
+        if order.status in {"CREATED", "PAYING", "PAID"}:
+            self.session.rollback()
+            return
+        if order.status == "FAILED":
+            self.session.rollback()
+            return
+
+        order.status = "CREATED"
+        order.failure_reason = None
+
+        purchase_record = self.session.execute(
+            select(UserPurchaseRecord).where(
+                UserPurchaseRecord.user_id == payload.user_id,
+                UserPurchaseRecord.product_id == payload.product_id,
+            )
+        ).scalar_one_or_none()
+        if purchase_record is None:
+            self.session.add(
+                UserPurchaseRecord(
+                    user_id=payload.user_id,
+                    product_id=payload.product_id,
+                    order_id=payload.order_id,
+                )
+            )
+
         self.session.commit()
+
+    def mark_inventory_failed(self, payload: InventoryResultEvent) -> None:
+        order = self.get_by_order_id(payload.order_id)
+        if order is None:
+            self.session.rollback()
+            return
+        if order.status == "FAILED":
+            self.session.rollback()
+            return
+        if order.status == "PAID":
+            self.session.rollback()
+            return
+
+        order.status = "FAILED"
+        order.failure_reason = payload.failure_reason or "INVENTORY_REJECTED"
+        self.session.commit()
+
+    def mark_payment_success(self, payload: PaymentRequestedEvent) -> None:
+        order = self.get_by_order_id(payload.order_id)
+        if order is None:
+            self.session.rollback()
+            return
+        payment = self.session.get(PaymentRecord, payload.order_id)
+        if payment is None:
+            payment = PaymentRecord(
+                order_id=payload.order_id,
+                user_id=payload.user_id,
+                amount=payload.amount,
+                status="SUCCESS",
+            )
+            self.session.add(payment)
+        else:
+            payment.status = "SUCCESS"
+            payment.amount = payload.amount
+
+        if order.status != "PAID":
+            order.status = "PAID"
+            order.failure_reason = None
+
+        self.session.commit()
+
+    def list_pending_outbox_events(self, limit: int) -> list[OrderOutboxEvent]:
+        now = utcnow()
+        statement = (
+            select(OrderOutboxEvent)
+            .where(
+                OrderOutboxEvent.status.in_(["NEW", "RETRY"]),
+                or_(OrderOutboxEvent.next_retry_at.is_(None), OrderOutboxEvent.next_retry_at <= now),
+            )
+            .order_by(OrderOutboxEvent.id.asc())
+            .limit(limit)
+        )
+        return list(self.session.execute(statement).scalars().all())
+
+    def mark_outbox_published(self, event: OrderOutboxEvent) -> None:
+        target = self.session.execute(
+            select(OrderOutboxEvent).where(
+                OrderOutboxEvent.id == event.id,
+                OrderOutboxEvent.aggregate_id == event.aggregate_id,
+                OrderOutboxEvent.user_id == event.user_id,
+            )
+        ).scalar_one_or_none()
+        if target is None:
+            self.session.rollback()
+            return
+        target.status = "PUBLISHED"
+        target.published_at = utcnow()
+        self.session.commit()
+
+    def mark_outbox_retry(self, event: OrderOutboxEvent) -> None:
+        target = self.session.execute(
+            select(OrderOutboxEvent).where(
+                OrderOutboxEvent.id == event.id,
+                OrderOutboxEvent.aggregate_id == event.aggregate_id,
+                OrderOutboxEvent.user_id == event.user_id,
+            )
+        ).scalar_one_or_none()
+        if target is None:
+            self.session.rollback()
+            return
+        retry_count = target.retry_count + 1
+        target.retry_count = retry_count
+        target.status = "RETRY"
+        target.next_retry_at = utcnow() + timedelta(seconds=min(retry_count * 2, 30))
+        self.session.commit()
+
+
+class InventoryServiceError(Exception):
+    def __init__(self, code: str, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+
+
+class InventoryServiceClient:
+    def __init__(self) -> None:
+        self.client = httpx.Client(
+            base_url=settings.INVENTORY_SERVICE_URL,
+            timeout=settings.INVENTORY_SERVICE_TIMEOUT_SECONDS,
+        )
+
+    def reserve(self, order_id: int, user_id: int, product_id: int, quantity: int) -> None:
+        self._post(
+            "/internal/inventory/reservations",
+            {
+                "order_id": order_id,
+                "user_id": user_id,
+                "product_id": product_id,
+                "quantity": quantity,
+            },
+        )
+
+    def cancel(self, order_id: int) -> None:
+        self._post(f"/internal/inventory/reservations/{order_id}/cancel", {})
+
+    def _post(self, path: str, payload: dict) -> dict:
+        try:
+            response = self.client.post(path, json=payload)
+        except httpx.HTTPError as exc:
+            raise InventoryServiceError("INVENTORY_SERVICE_UNAVAILABLE", "库存服务暂不可用", 503) from exc
+
+        if response.is_success:
+            if response.content:
+                return response.json()
+            return {}
+
+        detail = {}
+        try:
+            detail = response.json()
+        except ValueError:
+            detail = {}
+        raise InventoryServiceError(
+            detail.get("code", "INVENTORY_REQUEST_FAILED"),
+            detail.get("message", "库存服务请求失败"),
+            response.status_code,
+        )
 
 
 class OrderApplicationService:
@@ -285,14 +345,12 @@ class OrderApplicationService:
         self,
         order_db: Session,
         product_db: Session,
-        redis_client: redis.Redis,
-        producer: KafkaOrderProducer,
+        inventory_client: InventoryServiceClient,
         id_generator: SnowflakeIdGenerator,
     ) -> None:
         self.order_repository = OrderRepository(order_db)
-        self.inventory_repository = InventoryRepository(product_db)
-        self.stock_cache_service = StockCacheService(redis_client)
-        self.producer = producer
+        self.product_repository = ProductRepository(product_db)
+        self.inventory_client = inventory_client
         self.id_generator = id_generator
 
     def submit_seckill_order(
@@ -300,52 +358,59 @@ class OrderApplicationService:
         request: SeckillOrderRequest,
         current_user: CurrentUser,
     ) -> SeckillOrderAcceptedResponse:
-        existing_order = self.order_repository.find_by_user_and_product(
+        existing_order = self.order_repository.find_active_by_user_and_product(
             user_id=current_user.user_id,
             product_id=request.product_id,
         )
         if existing_order:
             raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409)
 
-        product = self.inventory_repository.get_product(request.product_id)
+        product = self.product_repository.get_product(request.product_id)
         if product is None:
             raise BusinessException("PRODUCT_NOT_FOUND", "秒杀商品不存在", 404)
 
-        self.stock_cache_service.ensure_stock_loaded(product)
-
         order_id = self.id_generator.next_id()
-        reserve_result = self.stock_cache_service.reserve_stock(
-            user_id=current_user.user_id,
-            product_id=request.product_id,
-            order_id=order_id,
-            quantity=request.quantity,
-        )
+        try:
+            self.inventory_client.reserve(
+                order_id=order_id,
+                user_id=current_user.user_id,
+                product_id=request.product_id,
+                quantity=request.quantity,
+            )
+        except InventoryServiceError as exc:
+            raise BusinessException(exc.code, exc.message, exc.status_code) from exc
 
-        if reserve_result == 2:
-            raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409)
-        if reserve_result == 0:
-            raise BusinessException("OUT_OF_STOCK", "商品已售罄", 409)
-        if reserve_result == -1:
-            raise BusinessException("STOCK_NOT_READY", "库存缓存尚未就绪，请稍后重试", 503)
-
-        event = OrderEvent(
+        event = OrderCreatedEvent(
             order_id=order_id,
             user_id=current_user.user_id,
             product_id=request.product_id,
             quantity=request.quantity,
             unit_price=Decimal(str(product.price)),
+            total_amount=Decimal(str(product.price)) * request.quantity,
         )
 
         try:
-            self.producer.send(event)
-        except Exception as exc:
-            self.stock_cache_service.release_reservation(
-                user_id=current_user.user_id,
-                product_id=request.product_id,
-                order_id=order_id,
-                quantity=request.quantity,
-            )
-            raise BusinessException("MQ_UNAVAILABLE", "下单请求排队失败，请稍后重试", 503) from exc
+            self.order_repository.create_pending_order_and_outbox(event)
+        except IntegrityError as exc:
+            self.order_repository.session.rollback()
+            try:
+                self.inventory_client.cancel(order_id)
+            except InventoryServiceError:
+                logger.error(
+                    "failed to cancel inventory reservation after duplicate order",
+                    extra={"event": "inventory_cancel_failed", "order_id": order_id},
+                )
+            raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409) from exc
+        except Exception:
+            self.order_repository.session.rollback()
+            try:
+                self.inventory_client.cancel(order_id)
+            except InventoryServiceError:
+                logger.error(
+                    "failed to cancel inventory reservation after order persistence error",
+                    extra={"event": "inventory_cancel_failed", "order_id": order_id},
+                )
+            raise
 
         logger.info(
             "seckill order accepted",
@@ -354,27 +419,74 @@ class OrderApplicationService:
                 "order_id": order_id,
                 "user_id": current_user.user_id,
                 "product_id": request.product_id,
-                "outcome": "queued",
+                "outcome": "pending_inventory",
             },
         )
         return SeckillOrderAcceptedResponse(
             order_id=order_id,
-            status="QUEUED",
-            message="下单请求已进入队列，请稍后查询订单结果",
+            status="PENDING_INVENTORY",
+            message="订单已创建并预扣库存，等待库存服务异步确认",
+        )
+
+    def pay_order(
+        self,
+        order_id: int,
+        request: PaymentRequest,
+        current_user: CurrentUser,
+    ) -> PaymentAcceptedResponse:
+        order = self.order_repository.get_by_order_id(order_id=order_id, user_id=current_user.user_id)
+        if order is None:
+            raise BusinessException("ORDER_NOT_FOUND", "订单不存在", 404)
+        if order.status == "FAILED":
+            raise BusinessException("ORDER_FAILED", "失败订单不能支付", 409)
+        if order.status == "PENDING_INVENTORY":
+            raise BusinessException("ORDER_NOT_READY", "库存尚未确认，请稍后再支付", 409)
+
+        amount = request.amount or Decimal(order.total_amount)
+        if amount != Decimal(order.total_amount):
+            raise BusinessException("INVALID_PAYMENT_AMOUNT", "支付金额必须与订单金额一致", 409)
+
+        order_status, payment_status = self.order_repository.request_payment(order=order, amount=amount)
+        logger.info(
+            "order payment accepted",
+            extra={
+                "event": "order_payment_accepted",
+                "order_id": order_id,
+                "user_id": current_user.user_id,
+                "order_status": order_status,
+                "payment_status": payment_status,
+            },
+        )
+        return PaymentAcceptedResponse(
+            order_id=order_id,
+            payment_status=payment_status,
+            order_status=order_status,
+            message="支付请求已受理，订单状态将异步更新",
         )
 
 
-def ensure_order_topic_exists() -> None:
+class KafkaEventProducer:
+    def __init__(self) -> None:
+        self._producer = KafkaProducer(
+            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+            value_serializer=lambda value: json.dumps(value, ensure_ascii=False).encode("utf-8"),
+        )
+
+    def send(self, topic: str, payload: dict) -> None:
+        self._producer.send(topic, payload)
+        self._producer.flush()
+
+
+def ensure_topics_exist() -> None:
     admin_client = KafkaAdminClient(bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS)
+    topics = [
+        settings.KAFKA_ORDER_CREATED_TOPIC,
+        settings.KAFKA_INVENTORY_RESULT_TOPIC,
+        settings.KAFKA_PAYMENT_TOPIC,
+    ]
     try:
         admin_client.create_topics(
-            new_topics=[
-                NewTopic(
-                    name=settings.KAFKA_ORDER_TOPIC,
-                    num_partitions=1,
-                    replication_factor=1,
-                )
-            ],
+            new_topics=[NewTopic(name=name, num_partitions=1, replication_factor=1) for name in topics],
             validate_only=False,
         )
     except TopicAlreadyExistsError:
@@ -383,20 +495,50 @@ def ensure_order_topic_exists() -> None:
         admin_client.close()
 
 
-class OrderWorker:
-    def __init__(
-        self,
-        order_session_factory,
-        product_session_factory,
-        redis_client: redis.Redis,
-    ) -> None:
+class OrderOutboxPublisher:
+    def __init__(self, order_session_factory) -> None:
         self.order_session_factory = order_session_factory
-        self.product_session_factory = product_session_factory
-        self.stock_cache_service = StockCacheService(redis_client)
+        self.producer = KafkaEventProducer()
+
+    def run(self) -> None:
+        logger.info("order outbox publisher started", extra={"event": "order_outbox_started"})
+        while True:
+            session = self.order_session_factory()
+            try:
+                repository = OrderRepository(session)
+                events = repository.list_pending_outbox_events(settings.OUTBOX_PUBLISH_BATCH_SIZE)
+            finally:
+                session.close()
+
+            if not events:
+                time.sleep(settings.OUTBOX_POLL_INTERVAL_SECONDS)
+                continue
+
+            for event in events:
+                session = self.order_session_factory()
+                try:
+                    repository = OrderRepository(session)
+                    payload = json.loads(event.payload)
+                    self.producer.send(event.topic, payload)
+                    repository.mark_outbox_published(event)
+                except Exception:
+                    session.rollback()
+                    retry_session = self.order_session_factory()
+                    try:
+                        OrderRepository(retry_session).mark_outbox_retry(event)
+                    finally:
+                        retry_session.close()
+                finally:
+                    session.close()
+
+
+class InventoryResultConsumer:
+    def __init__(self, order_session_factory) -> None:
+        self.order_session_factory = order_session_factory
         self.consumer = KafkaConsumer(
-            settings.KAFKA_ORDER_TOPIC,
+            settings.KAFKA_INVENTORY_RESULT_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-            group_id=settings.KAFKA_CONSUMER_GROUP_ID,
+            group_id=settings.KAFKA_INVENTORY_RESULT_GROUP_ID,
             enable_auto_commit=False,
             auto_offset_reset="earliest",
             value_deserializer=lambda value: json.loads(value.decode("utf-8")),
@@ -404,106 +546,69 @@ class OrderWorker:
 
     def run(self) -> None:
         logger.info(
-            "order worker started",
-            extra={"event": "order_worker_started", "topic": settings.KAFKA_ORDER_TOPIC},
+            "inventory result consumer started",
+            extra={"event": "order_inventory_result_consumer_started"},
         )
         for message in self.consumer:
-            payload = OrderEvent.model_validate(message.value)
-            self._handle_message(payload)
-            self.consumer.commit()
-
-    def _handle_message(self, payload: OrderEvent) -> None:
-        order_db = self.order_session_factory()
-        product_db = self.product_session_factory()
-
-        try:
-            order_repository = OrderRepository(order_db)
-            inventory_repository = InventoryRepository(product_db)
-
-            existing_order = order_repository.find_by_user_and_product(payload.user_id, payload.product_id)
-            if existing_order:
-                self.stock_cache_service.mark_success(
-                    user_id=payload.user_id,
-                    product_id=payload.product_id,
-                    order_id=existing_order.order_id,
-                )
-                logger.info(
-                    "duplicate event ignored because order already exists",
-                    extra={
-                        "event": "order_duplicate_event",
-                        "order_id": existing_order.order_id,
-                        "user_id": payload.user_id,
-                        "product_id": payload.product_id,
-                        "outcome": "already_exists",
-                    },
-                )
-                return
-
-            if not inventory_repository.deduct_stock(payload.product_id, payload.quantity):
-                self.stock_cache_service.release_reservation(
-                    user_id=payload.user_id,
-                    product_id=payload.product_id,
-                    order_id=payload.order_id,
-                    quantity=payload.quantity,
-                )
-                logger.info(
-                    "order rejected because stock is insufficient in database",
-                    extra={
-                        "event": "order_stock_rejected",
-                        "order_id": payload.order_id,
-                        "user_id": payload.user_id,
-                        "product_id": payload.product_id,
-                        "outcome": "out_of_stock",
-                    },
-                )
-                return
-
+            payload = InventoryResultEvent.model_validate(message.value)
+            session = self.order_session_factory()
             try:
-                order_repository.create_order(payload)
-                self.stock_cache_service.mark_success(
-                    user_id=payload.user_id,
-                    product_id=payload.product_id,
-                    order_id=payload.order_id,
-                )
-                logger.info(
-                    "order created successfully",
-                    extra={
-                        "event": "order_created",
-                        "order_id": payload.order_id,
-                        "user_id": payload.user_id,
-                        "product_id": payload.product_id,
-                        "outcome": "success",
-                    },
-                )
-            except IntegrityError:
-                order_db.rollback()
-                inventory_repository.restore_stock(payload.product_id, payload.quantity)
-                self.stock_cache_service.release_reservation(
-                    user_id=payload.user_id,
-                    product_id=payload.product_id,
-                    order_id=payload.order_id,
-                    quantity=payload.quantity,
-                )
-                logger.info(
-                    "order creation rolled back because duplicate purchase was detected",
-                    extra={
-                        "event": "order_duplicate_purchase",
-                        "order_id": payload.order_id,
-                        "user_id": payload.user_id,
-                        "product_id": payload.product_id,
-                        "outcome": "rolled_back",
-                    },
-                )
-            except Exception:
-                order_db.rollback()
-                inventory_repository.restore_stock(payload.product_id, payload.quantity)
-                self.stock_cache_service.release_reservation(
-                    user_id=payload.user_id,
-                    product_id=payload.product_id,
-                    order_id=payload.order_id,
-                    quantity=payload.quantity,
-                )
-                raise
-        finally:
-            order_db.close()
-            product_db.close()
+                repository = OrderRepository(session)
+                if payload.status == "CONFIRMED":
+                    repository.mark_inventory_confirmed(payload)
+                else:
+                    repository.mark_inventory_failed(payload)
+                self.consumer.commit()
+            finally:
+                session.close()
+
+
+class PaymentResultConsumer:
+    def __init__(self, order_session_factory) -> None:
+        self.order_session_factory = order_session_factory
+        self.consumer = KafkaConsumer(
+            settings.KAFKA_PAYMENT_TOPIC,
+            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+            group_id=settings.KAFKA_PAYMENT_GROUP_ID,
+            enable_auto_commit=False,
+            auto_offset_reset="earliest",
+            value_deserializer=lambda value: json.loads(value.decode("utf-8")),
+        )
+
+    def run(self) -> None:
+        logger.info("payment consumer started", extra={"event": "order_payment_consumer_started"})
+        for message in self.consumer:
+            payload = PaymentRequestedEvent.model_validate(message.value)
+            session = self.order_session_factory()
+            try:
+                repository = OrderRepository(session)
+                repository.mark_payment_success(payload)
+                self.consumer.commit()
+            finally:
+                session.close()
+
+
+class OrderWorker:
+    def __init__(self, order_session_factory) -> None:
+        self.publisher = OrderOutboxPublisher(order_session_factory=order_session_factory)
+        self.inventory_result_consumer = InventoryResultConsumer(order_session_factory=order_session_factory)
+        self.payment_result_consumer = PaymentResultConsumer(order_session_factory=order_session_factory)
+
+    def run(self) -> None:
+        threads = [
+            threading.Thread(target=self.publisher.run, name="order-outbox-publisher", daemon=True),
+            threading.Thread(
+                target=self.inventory_result_consumer.run,
+                name="inventory-result-consumer",
+                daemon=True,
+            ),
+            threading.Thread(
+                target=self.payment_result_consumer.run,
+                name="payment-result-consumer",
+                daemon=True,
+            ),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()

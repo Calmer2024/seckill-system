@@ -33,6 +33,26 @@ rules:
           standard:
             shardingColumn: order_id
             shardingAlgorithmName: order_table_inline
+      t_payment:
+        actualDataNodes: ds_${0..1}.t_payment_${0..1}
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: order_database_inline
+        tableStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: order_table_inline
+      t_order_outbox_event:
+        actualDataNodes: ds_${0..1}.t_order_outbox_event_${0..1}
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: order_database_inline
+        tableStrategy:
+          standard:
+            shardingColumn: aggregate_id
+            shardingAlgorithmName: outbox_table_inline
       t_user_purchase_record:
         actualDataNodes: ds_${0..1}.t_user_purchase_record
         databaseStrategy:
@@ -48,6 +68,10 @@ rules:
         type: INLINE
         props:
           algorithm-expression: t_order_${order_id % 2}
+      outbox_table_inline:
+        type: INLINE
+        props:
+          algorithm-expression: t_order_outbox_event_${aggregate_id % 2}
 
 props:
   sql-show: true

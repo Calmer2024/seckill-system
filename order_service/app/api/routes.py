@@ -1,18 +1,18 @@
 from typing import Annotated
 
-import redis
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_order_application_service
 from app.application.dto.order_dto import (
     OrderResponse,
-    PendingOrderResponse,
+    PaymentAcceptedResponse,
+    PaymentRequest,
     SeckillOrderAcceptedResponse,
     SeckillOrderRequest,
 )
-from app.application.services.order_service import OrderApplicationService, OrderRepository, StockCacheService
-from app.core.database import get_order_db, get_redis_client
+from app.application.services.order_service import OrderApplicationService, OrderRepository
+from app.core.database import get_order_db
 from app.core.exceptions.business_exception import BusinessException
 from app.core.security import CurrentUser, get_current_user
 
@@ -29,25 +29,25 @@ def create_seckill_order(
     return service.submit_seckill_order(request=request, current_user=current_user)
 
 
-@router.get("/{order_id}", response_model=OrderResponse | PendingOrderResponse)
+@router.post("/{order_id}/pay", response_model=PaymentAcceptedResponse)
+def pay_order(
+    order_id: int,
+    request: PaymentRequest,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+    service: Annotated[OrderApplicationService, Depends(get_order_application_service)],
+):
+    return service.pay_order(order_id=order_id, request=request, current_user=current_user)
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
 def get_order_detail(
     order_id: int,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
     order_db: Annotated[Session, Depends(get_order_db)],
-    redis_client: Annotated[redis.Redis, Depends(get_redis_client)],
 ):
-    stock_cache_service = StockCacheService(redis_client)
-    order_owner = stock_cache_service.get_order_owner(order_id)
-    order = OrderRepository(order_db).get_by_order_id(order_id=order_id, user_id=order_owner)
+    order = OrderRepository(order_db).get_by_order_id(order_id=order_id, user_id=current_user.user_id)
     if order:
         return order
-
-    status = stock_cache_service.get_order_status(order_id)
-    if status:
-        return PendingOrderResponse(
-            order_id=order_id,
-            status=status,
-            message="订单仍在异步处理，请稍后刷新",
-        )
 
     raise BusinessException("ORDER_NOT_FOUND", "订单不存在", 404)
 

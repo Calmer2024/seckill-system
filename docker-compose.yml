@@ -161,6 +161,7 @@ services:
     environment:
       ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
       PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
+      INVENTORY_SERVICE_URL: http://inventory_service:8000
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET_KEY: fallback_secret_key_for_dev
@@ -181,6 +182,7 @@ services:
     environment:
       ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
       PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
+      INVENTORY_SERVICE_URL: http://inventory_service:8000
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET_KEY: fallback_secret_key_for_dev
@@ -191,6 +193,39 @@ services:
         condition: service_healthy
       shardingsphere-proxy:
         condition: service_started
+      kafka:
+        condition: service_healthy
+      inventory_service:
+        condition: service_started
+
+  inventory_service:
+    build: ./inventory_service
+    container_name: seckill_inventory_service
+    environment:
+      INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  inventory_worker:
+    build: ./inventory_service
+    container_name: seckill_inventory_worker
+    command: ["python", "-m", "app.worker"]
+    environment:
+      INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
       kafka:
         condition: service_healthy
 

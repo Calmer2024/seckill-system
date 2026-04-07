@@ -5,11 +5,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes
-from app.application.services.order_service import ensure_topics_exist
+from app.api.routes import router
 from app.core.config import settings
 from app.core.exceptions.handlers import register_exception_handlers
 from app.infrastructure.logging.logger import configure_logging, get_logger
+from app.services.inventory_service import ensure_topics_exist
 
 
 configure_logging(settings.LOG_LEVEL)
@@ -22,11 +22,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    description="秒杀订单服务",
-    lifespan=lifespan,
-)
+app = FastAPI(title=settings.PROJECT_NAME, description="库存服务", lifespan=lifespan)
 register_exception_handlers(app)
 
 app.add_middleware(
@@ -37,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(routes.router)
+app.include_router(router)
 
 
 @app.middleware("http")
