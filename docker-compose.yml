@@ -1,52 +1,132 @@
 services:
-  # 1. 基础设施：MySQL 数据库
-  mysql:
+  # 1. 基础设施：MySQL 主库
+  mysql-primary:
     image: mysql:8.0
-    container_name: seckill_mysql
+    container_name: seckill_mysql_primary
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: 418124
+      MYSQL_DATABASE: seckill_db
+    volumes:
+      - ./infra/mysql/primary/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p418124"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 2. 基础设施：MySQL 从库
+  mysql-replica:
+    image: mysql:8.0
+    container_name: seckill_mysql_replica
+    command:
+      - --server-id=2
+      - --relay-log=relay-bin
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --read-only=ON
+      - --super-read-only=ON
     environment:
       MYSQL_ROOT_PASSWORD: 418124
       MYSQL_DATABASE: seckill_db
     ports:
-      - "3307:3306"
+      - "3308:3306"
+    depends_on:
+      mysql-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p418124"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  # 2. 基础设施：Redis 缓存
+  mysql-replica-init:
+    image: mysql:8.0
+    container_name: seckill_mysql_replica_init
+    depends_on:
+      mysql-primary:
+        condition: service_healthy
+      mysql-replica:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: 418124
+      REPLICATION_USER: replicator
+      REPLICATION_PASSWORD: replicator123
+    volumes:
+      - ./infra/mysql/scripts/setup-replica.sh:/setup-replica.sh:ro
+    entrypoint: ["/bin/sh", "/setup-replica.sh"]
+
+  # 3. 基础设施：Redis 缓存
   redis:
     image: redis:alpine
     container_name: seckill_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  # 3. 微服务：用户服务 (负责登录注册)
+  # 4. 微服务：用户服务 (负责登录注册)
   user_service:
     build: ./user_service
     container_name: seckill_user
+    environment:
+      DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
     depends_on:
-      - mysql
+      mysql-primary:
+        condition: service_healthy
 
-  # 4. 微服务：商品服务实例 1 (参与负载均衡)
+  # 5. 微服务：商品服务实例 1 (参与负载均衡)
   product_service_1:
     build: ./product_service
     container_name: seckill_product_1
+    environment:
+      DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
+      READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
+      REDIS_HOST: redis
     depends_on:
-      - redis
-    volumes:
-      - ./product_service:/app
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
+      mysql-replica-init:
+        condition: service_completed_successfully
 
-  # 5. 微服务：商品服务实例 2 (参与负载均衡)
+  # 6. 微服务：商品服务实例 2 (参与负载均衡)
   product_service_2:
     build: ./product_service
     container_name: seckill_product_2
+    environment:
+      DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
+      READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
+      REDIS_HOST: redis
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      mysql-primary:
+        condition: service_healthy
+      mysql-replica-init:
+        condition: service_completed_successfully
 
-  # 6. 网关层：前端与 Nginx 网关
+  # 7. 网关层：前端与 Nginx 网关
   frontend_nginx:
     build: ./frontend
     container_name: seckill_nginx
     ports:
       - "80:80"   # 你在浏览器里访问 http://localhost 的入口
     volumes:
-      # 【核心魔法】用我们刚写的网关配置，去覆盖前端容器里 Nginx 默认的配置
+      # 用我们刚写的网关配置，去覆盖前端容器里 Nginx 默认的配置
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - user_service

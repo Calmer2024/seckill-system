@@ -1,50 +1,54 @@
 @import "tailwindcss";
 
+/* 在 v4 中，所有自定义主题通过 @theme 定义 */
 @theme {
-  /* Apple Store 经典色系配合毛玻璃材质 */
-  --color-apple-bg: #F5F5F7;
-  --color-apple-card: rgba(255, 255, 255, 0.65);
-  --color-apple-dark: #1D1D1F;
-  --color-apple-blue: #0071E3;
-  
-  --font-display: "SF Pro Display", "Inter", -apple-system, sans-serif;
-  --font-body: "SF Pro Text", "Inter", -apple-system, sans-serif;
+  --color-primary-light: #333333;
+  --color-primary: #171717;
+  --color-primary-dark: #000000;
 
-  /* 苹果式弥散阴影 */
-  --shadow-apple: 0 4px 24px rgba(0, 0, 0, 0.04);
-  --shadow-apple-hover: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --color-secondary-light: #F3F4F6;
+  --color-secondary: #E5E7EB;
+  --color-secondary-dark: #D1D5DB;
+
+  /* 这行会自动生成 bg-background 工具类 */
+  --color-background-light: #FFFFFF;
+  --color-background: #FFFFFF;
+  --color-background-dark: #F9FAFB;
+
+  --color-surface-light: #FAFAFA;
+  --color-surface: #F5F5F5;
+  --color-surface-dark: #E5E5E5;
+  --color-surface-black: #1F2937;
+
+  /* 这行会自动生成 text-text-main 工具类 */
+  --color-text-main-light: #374151;
+  --color-text-main: #111827;
+  --color-text-main-dark: #000000;
+
+  --color-text-muted-light: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --color-text-muted-dark: #4B5563;
+
+  --color-accent-red: #EF4444;
+  --color-accent-yellow: #F59E0B;
+
+  --radius-card: 1.25rem;
+  --radius-card-lg: 1.5rem;
+
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-body {
-  background-color: var(--color-apple-bg);
-  color: var(--color-apple-dark);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-  /* 自定义极简光标 */
-  cursor: crosshair; 
+@layer base {
+  body {
+    @apply bg-background text-text-main font-sans antialiased;
+  }
 }
 
 /* 隐藏滚动条，保持页面极其干净 */
 ::-webkit-scrollbar {
   width: 0px;
   background: transparent;
-}
-
-/* 颗粒叠加：极度细腻的钛金属拉丝/噪点质感 */
-.titanium-noise {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.02;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-}
-
-/* 环境光渐变底座 */
-.ambient-background {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(circle at 50% 0%, #FFFFFF 0%, #F5F5F7 60%);
 }
