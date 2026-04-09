@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { inventoryApi } from '../services/inventoryApi';
@@ -40,6 +40,17 @@ export default function FlashSaleArena({ session }) {
     }
   };
 
+  const refreshInventory = useEffectEvent(async () => {
+    try {
+      const inventoryResponse = await inventoryApi.getProductInventory(productId);
+      startTransition(() => {
+        setInventory(inventoryResponse);
+      });
+    } catch {
+      // 静默刷新失败时保持当前库存显示，避免影响正在进行的下单流程。
+    }
+  });
+
   useEffect(() => {
     let active = true;
 
@@ -53,8 +64,10 @@ export default function FlashSaleArena({ session }) {
         if (!active) {
           return;
         }
-        setProduct(decorateProduct(productResponse, 0));
-        setInventory(inventoryResponse);
+        startTransition(() => {
+          setProduct(decorateProduct(productResponse, 0));
+          setInventory(inventoryResponse);
+        });
         setMessage('商品信息已经准备完成，可以开始参与抢购。');
       } catch (requestError) {
         if (active) {
@@ -74,6 +87,16 @@ export default function FlashSaleArena({ session }) {
     };
   }, [productId]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshInventory();
+    }, 2500);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [productId]);
+
   const pollOrder = (orderId) => {
     stopPolling();
     let attempts = 0;
@@ -82,7 +105,10 @@ export default function FlashSaleArena({ session }) {
       attempts += 1;
       try {
         const detail = await orderApi.getOrder(orderId);
-        setOrder(detail);
+        startTransition(() => {
+          setOrder(detail);
+        });
+        refreshInventory();
 
         if (detail.status === 'FAILED') {
           setMessage(detail.failure_reason || '订单处理失败，请稍后再试。');
@@ -126,14 +152,17 @@ export default function FlashSaleArena({ session }) {
 
     try {
       const response = await orderApi.createSeckillOrder(productId);
-      setOrder({
-        order_id: response.order_id,
-        status: response.status,
-        product_id: productId,
-        quantity: 1,
-        total_amount: product?.price ?? 0,
+      startTransition(() => {
+        setOrder({
+          order_id: response.order_id,
+          status: response.status,
+          product_id: productId,
+          quantity: 1,
+          total_amount: product?.price ?? 0,
+        });
       });
       setMessage(response.message || `订单 ${response.order_id} 已提交。`);
+      refreshInventory();
       pollOrder(response.order_id);
     } catch (requestError) {
       setMessage(requestError?.response?.data?.message || '抢购失败，请稍后重试。');
@@ -153,6 +182,7 @@ export default function FlashSaleArena({ session }) {
     try {
       const response = await orderApi.payOrder(order.order_id);
       setMessage(response.message || '支付请求已受理。');
+      refreshInventory();
       pollOrder(order.order_id);
     } catch (requestError) {
       setMessage(requestError?.response?.data?.message || '订单支付失败，请稍后重试。');
@@ -175,12 +205,12 @@ export default function FlashSaleArena({ session }) {
 
   const storyCards = [
     {
-      title: '更清爽的陈列方式',
-      description: '以更少的边框和更大的留白，让信息自然流动，阅读体验更接近精品零售陈列页。',
+      title: '商品简介',
+      description: product?.description || '正在整理这件商品的详细介绍、适用场景和选购建议。',
     },
     {
-      title: '更直接的购买路径',
-      description: '价格、库存、订单和支付集中在同一页完成，避免在多个模块之间来回切换。',
+      title: '推荐标签',
+      description: product?.tags?.length ? product.tags.join(' · ') : '支持展示商品标签，帮助用户更快了解商品特性。',
     },
   ];
 
@@ -195,8 +225,33 @@ export default function FlashSaleArena({ session }) {
                 {loading ? '正在准备商品信息...' : product?.name || '商品信息加载失败'}
               </h1>
               <p className="mt-6 max-w-xl text-base leading-8 text-text-muted">
-                在更纯净的白底陈列页里查看商品信息、库存变化和订单进度，让浏览、下单与支付保持在同一条阅读动线上。
+                {product?.description || '正在整理这件商品的详细介绍、库存变化和订单进度。'}
               </p>
+
+              <div className="mt-7 flex flex-wrap items-center gap-4 text-sm text-text-muted">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#EAEAEA] bg-white px-4 py-2">
+                  <Icon icon="lucide:star" className="h-4 w-4 text-accent-yellow" />
+                  <span className="font-semibold text-primary">{product?.rating || '--'}</span>
+                  <span>{product?.reviewsLabel || '0 条评价'}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#EAEAEA] bg-white px-4 py-2">
+                  <Icon icon="lucide:layers-3" className="h-4 w-4 text-primary" />
+                  <span>{product?.categoryLabel || '商品分类'}</span>
+                </span>
+              </div>
+
+              {product?.tags?.length ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {product.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-1.5 text-xs font-semibold tracking-[0.12em] text-text-muted"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="mt-10 flex flex-wrap items-end gap-x-12 gap-y-6">
                 <div>
@@ -204,6 +259,10 @@ export default function FlashSaleArena({ session }) {
                   <div className="mt-3 text-6xl font-black tracking-[-0.07em] text-primary">
                     ¥{product ? formatPrice(product.price) : '--'}
                   </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-text-muted">商品亮点</div>
+                  <div className="mt-3 text-lg font-semibold text-primary">{product?.highlight || '精选好物'}</div>
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-[0.22em] text-text-muted">当前账号</div>

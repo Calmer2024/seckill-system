@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { startTransition, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { orderApi } from '../services/orderApi';
@@ -20,30 +20,46 @@ export default function OrdersCenter({ session }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');
   const [payingOrderId, setPayingOrderId] = useState(null);
 
-  const loadOrders = async () => {
+  const loadOrders = useEffectEvent(async ({ silent = false } = {}) => {
     if (!session.isAuthenticated) {
-      setOrders([]);
-      setLoading(false);
+      startTransition(() => {
+        setOrders([]);
+        setLoading(false);
+        setSyncing(false);
+      });
       return;
     }
 
-    setLoading(true);
+    if (silent) {
+      setSyncing(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const response = await orderApi.getMyOrders();
-      setOrders(Array.isArray(response) ? response : [response]);
+      const nextOrders = Array.isArray(response) ? response : [response];
+      startTransition(() => {
+        setOrders(nextOrders);
+      });
       setMessage('');
     } catch (requestError) {
       setMessage(requestError?.response?.data?.message || '订单列表加载失败，请稍后再试。');
     } finally {
-      setLoading(false);
+      if (silent) {
+        setSyncing(false);
+      } else {
+        setLoading(false);
+      }
     }
-  };
+  });
 
   useEffect(() => {
-    loadOrders();
+    loadOrders({ silent: false });
   }, [session.isAuthenticated]);
 
   useEffect(() => {
@@ -52,7 +68,7 @@ export default function OrdersCenter({ session }) {
     }
 
     const timer = setInterval(() => {
-      loadOrders();
+      loadOrders({ silent: true });
     }, 5000);
 
     return () => clearInterval(timer);
@@ -67,13 +83,13 @@ export default function OrdersCenter({ session }) {
   }, [orders]);
 
   const handlePay = async (order) => {
-    setPayingOrderId(order.order_id);
-    setMessage('支付请求已发送，请稍候查看最新状态。');
+      setPayingOrderId(order.order_id);
+      setMessage('支付请求已发送，请稍候查看最新状态。');
 
     try {
       const response = await orderApi.payOrder(order.order_id);
       setMessage(response.message || '支付请求已受理。');
-      await loadOrders();
+      await loadOrders({ silent: true });
     } catch (requestError) {
       setMessage(requestError?.response?.data?.message || '支付失败，请稍后重试。');
     } finally {
@@ -87,7 +103,7 @@ export default function OrdersCenter({ session }) {
         <div className="dream-panel grid gap-8 overflow-hidden lg:grid-cols-[1fr_0.95fr]">
           <div className="bg-primary px-6 py-8 text-white md:px-8 md:py-10">
             <div className="dream-kicker text-white/55">Dreamstore 订单中心</div>
-            <h1 className="mt-3 text-[clamp(2.6rem,6vw,4.5rem)] font-black leading-[0.94] tracking-[-0.07em]">
+            <h1 className="mt-3 text-[clamp(2.15rem,5vw,3.45rem)] font-black leading-[1.24] tracking-[0.1em]">
               登录之后，
               <br />
               才能查看
@@ -130,7 +146,7 @@ export default function OrdersCenter({ session }) {
         <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="bg-primary px-6 py-8 text-white md:px-8 md:py-10">
             <div className="dream-kicker text-white/55">订单中心</div>
-            <h1 className="mt-3 text-[clamp(2.6rem,6vw,4.5rem)] font-black leading-[0.94] tracking-[-0.07em]">
+            <h1 className="mt-3 text-[clamp(2.1rem,5vw,3.55rem)] font-black leading-[1.24] tracking-[0.1em]">
               统一查看
               <br />
               购物订单与
@@ -155,6 +171,10 @@ export default function OrdersCenter({ session }) {
 
       {message ? (
         <div className="rounded-[1.6rem] border border-[#E8E2D8] bg-white px-5 py-4 text-sm text-primary">{message}</div>
+      ) : null}
+
+      {syncing && !loading ? (
+        <div className="text-right text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">订单状态同步中</div>
       ) : null}
 
       {loading ? (

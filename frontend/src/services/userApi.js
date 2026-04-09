@@ -8,4 +8,12 @@ export const userApi = {
   login: (payload) => {
     return http.post('/api/users/login', payload);
   },
+
+  getProfile: () => {
+    return http.get('/api/users/profile');
+  },
+
+  updateProfile: (payload) => {
+    return http.put('/api/users/profile', payload);
+  },
 };

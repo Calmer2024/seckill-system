@@ -6,7 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.bootstrap.catalog_bootstrap import ensure_inventory_catalog
 from app.core.config import settings
+from app.core.database import inventory_engine
 from app.core.exceptions.handlers import register_exception_handlers
 from app.infrastructure.logging.logger import configure_logging, get_logger
 from app.services.inventory_service import ensure_topics_exist
@@ -18,6 +20,7 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    ensure_inventory_catalog(inventory_engine)
     ensure_topics_exist()
     yield
 

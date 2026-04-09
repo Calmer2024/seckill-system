@@ -132,7 +132,7 @@ export default function StoreFront({ session }) {
       const matchesCategory = activeCategory === 'all' || product.categoryKey === activeCategory;
       const matchesKeyword =
         !deferredKeyword ||
-        `${product.name} ${product.categoryLabel} ${product.highlight}`.toLowerCase().includes(deferredKeyword);
+        `${product.name} ${product.categoryLabel} ${product.highlight} ${product.description} ${(product.tags || []).join(' ')}`.toLowerCase().includes(deferredKeyword);
       return matchesCategory && matchesKeyword;
     });
   }, [activeCategory, deferredKeyword, products]);

@@ -17,6 +17,7 @@ class UserLogin(UserBase):
 class UserResponse(UserBase):
     id: int
     created_at: datetime
+    avatar_url: str = Field(default="/avatar.JPG")
 
     # 关键配置：让 Pydantic 能够读取 SQLAlchemy 的 ORM 模型数据
     model_config = ConfigDict(from_attributes=True)
@@ -24,3 +25,6 @@ class UserResponse(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class UserProfileUpdate(BaseModel):
+    avatar_url: str = Field(..., min_length=1, max_length=1024, description="头像地址")

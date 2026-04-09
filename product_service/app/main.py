@@ -4,14 +4,17 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.bootstrap.catalog_bootstrap import clear_product_cache, ensure_product_schema_and_seed
 from app.core.config import settings
-from app.core.database import Base, write_engine
+from app.core.database import Base, redis_client, write_engine
 from app.core.exceptions.handlers import register_exception_handlers
 from app.infrastructure.logging.logger import configure_logging, get_logger
 from app.api import routes
 
 # 初始化表结构 (生产环境中通常使用 Alembic 做数据迁移，不推荐直接 create_all)
 Base.metadata.create_all(bind=write_engine)
+ensure_product_schema_and_seed(write_engine)
+clear_product_cache(redis_client)
 
 configure_logging(settings.LOG_LEVEL)
 logger = get_logger(__name__)

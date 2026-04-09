@@ -40,6 +40,13 @@ class ProductResponse(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     price: Decimal = Field(ge=0)
     stock: int = Field(ge=0)
+    category: str = Field(default="home", min_length=1, max_length=32)
+    rating: float = Field(default=4.8, ge=0, le=5)
+    review_count: int = Field(default=0, ge=0)
+    tags: list[str] = Field(default_factory=list)
+    summary: str = Field(default="")
+    highlight: str = Field(default="")
+    visual_icon: str = Field(default="lucide:package-open")
 
     @classmethod
     def from_entity(cls, entity: ProductEntity) -> "ProductResponse":
@@ -48,6 +55,13 @@ class ProductResponse(BaseModel):
             name=entity.name,
             price=entity.price,
             stock=entity.stock,
+            category=entity.category,
+            rating=entity.rating,
+            review_count=entity.review_count,
+            tags=entity.tags,
+            summary=entity.summary,
+            highlight=entity.highlight,
+            visual_icon=entity.visual_icon,
         )
 
 

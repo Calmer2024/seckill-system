@@ -8,3 +8,10 @@ class ProductEntity:
     name: str
     price: Decimal
     stock: int
+    category: str
+    rating: float
+    review_count: int
+    tags: list[str]
+    summary: str
+    highlight: str
+    visual_icon: str

@@ -7,6 +7,7 @@ import AuthPortal from './pages/AuthPortal';
 import FlashSaleArena from './pages/FlashSaleArena';
 import OrdersCenter from './pages/OrdersCenter';
 import StoreFront from './pages/StoreFront';
+import { avatarPresets, DEFAULT_AVATAR_URL } from './utils/avatarPresets';
 
 const navItems = [
   { to: '/', label: '首页', end: true },
@@ -25,7 +26,149 @@ function BrandMark() {
   );
 }
 
-function Header({ session, onLogout }) {
+function formatJoinDate(value) {
+  if (!value) {
+    return '刚刚加入';
+  }
+
+  try {
+    return new Date(value).toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return '刚刚加入';
+  }
+}
+
+function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
+  const [open, setOpen] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState('');
+  const activeAvatar = session.avatarUrl || DEFAULT_AVATAR_URL;
+
+  const handleAvatarSelect = async (avatarUrl) => {
+    if (!session.isAuthenticated || avatarUrl === activeAvatar) {
+      return;
+    }
+
+    setSavingAvatar(avatarUrl);
+    try {
+      await onUpdateProfile({ avatar_url: avatarUrl });
+    } finally {
+      setSavingAvatar('');
+    }
+  };
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {session.isAuthenticated ? (
+        <button
+          type="button"
+          className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          aria-label="用户资料"
+        >
+          <img src={activeAvatar} alt="用户头像" className="h-10 w-10 object-cover" />
+        </button>
+      ) : (
+        <Link
+          to="/auth"
+          className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          aria-label="用户中心"
+        >
+          <img src={DEFAULT_AVATAR_URL} alt="用户头像" className="h-10 w-10 object-cover" />
+        </Link>
+      )}
+
+      {open ? (
+        <div className="absolute right-0 top-[calc(100%+14px)] z-[80] w-[320px] rounded-[1.8rem] border border-[#ECECEC] bg-white p-4 shadow-[0_26px_56px_-36px_rgba(17,24,39,0.3)]">
+          {session.isAuthenticated ? (
+            <>
+              <div className="flex items-start gap-4">
+                <img src={activeAvatar} alt="当前头像" className="h-16 w-16 rounded-[1.2rem] object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Dreamstore Member</div>
+                  <div className="mt-2 truncate text-lg font-black tracking-[-0.04em] text-primary">{session.username}</div>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-6 text-text-muted">
+                    <div>
+                      <div className="uppercase tracking-[0.18em]">用户 ID</div>
+                      <div className="text-sm font-semibold text-primary">{session.userId}</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-[0.18em]">加入时间</div>
+                      <div className="text-sm font-semibold text-primary">{formatJoinDate(session.createdAt)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[1.4rem] bg-[#FAFAFA] p-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">切换头像</div>
+                <div className="mt-3 grid grid-cols-5 gap-2">
+                  {avatarPresets.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleAvatarSelect(item.url)}
+                      disabled={Boolean(savingAvatar)}
+                      className={[
+                        'overflow-hidden rounded-[1rem] border p-1 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60',
+                        activeAvatar === item.url ? 'border-primary bg-primary/3' : 'border-[#EAEAEA] bg-white',
+                      ].join(' ')}
+                      title={item.label}
+                    >
+                      <img src={item.url} alt={item.label} className="h-11 w-full rounded-[0.75rem] object-cover" />
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs leading-5 text-text-muted">
+                  悬浮在头像上即可查看资料卡，这里可以直接为当前账号切换头像。
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <Link to="/orders" className="dream-button-secondary flex-1">
+                  我的订单
+                </Link>
+                <button type="button" onClick={onLogout} className="dream-button-primary flex-1">
+                  退出登录
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-4">
+                <img src={DEFAULT_AVATAR_URL} alt="默认头像" className="h-16 w-16 rounded-[1.2rem] object-cover" />
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Guest</div>
+                  <div className="mt-2 text-lg font-black tracking-[-0.04em] text-primary">登录后开启个人资料</div>
+                  <div className="mt-2 text-sm leading-6 text-text-muted">
+                    登录后可以设置头像、查看订单，并在顶部悬浮卡片里快速访问你的账户信息。
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <Link to="/auth" className="dream-button-primary flex-1">
+                  前往登录
+                </Link>
+                <Link to="/" className="dream-button-secondary flex-1">
+                  返回首页
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Header({ session, onLogout, onUpdateProfile }) {
   return (
     <header className="absolute inset-x-0 top-0 z-50">
       <div className="dream-shell">
@@ -71,24 +214,7 @@ function Header({ session, onLogout }) {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent-red" />
               </Link>
 
-              {session.isAuthenticated ? (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  title="退出登录"
-                  className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white"
-                >
-                  <img src="/avatar.JPG" alt="用户头像" className="h-10 w-10 object-cover" />
-                </button>
-              ) : (
-                <Link
-                  to="/auth"
-                  className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white"
-                  aria-label="用户中心"
-                >
-                  <img src="/avatar.JPG" alt="用户头像" className="h-10 w-10 object-cover" />
-                </Link>
-              )}
+              <UserAvatarControl session={session} onLogout={onLogout} onUpdateProfile={onUpdateProfile} />
             </div>
           </div>
         </div>
@@ -192,7 +318,7 @@ function ScrollToTop() {
   return null;
 }
 
-function Layout({ session, onLogout, children }) {
+function Layout({ session, onLogout, onUpdateProfile, children }) {
   const location = useLocation();
   const [toastMessage, setToastMessage] = useState('');
 
@@ -225,7 +351,7 @@ function Layout({ session, onLogout, children }) {
   return (
     <div className="min-h-screen pb-4">
       <ScrollToTop />
-      <Header session={session} onLogout={onLogout} />
+      <Header session={session} onLogout={onLogout} onUpdateProfile={onUpdateProfile} />
       {toastMessage ? (
         <div className="fixed right-4 top-24 z-[70] md:right-6">
           <div className="flex items-center gap-3 rounded-[1.4rem] border border-[#DDEBDD] bg-white px-4 py-3 shadow-[0_20px_42px_-32px_rgba(17,24,39,0.28)]">
@@ -246,11 +372,11 @@ function Layout({ session, onLogout, children }) {
 }
 
 export default function App() {
-  const { session, logout } = useAuthSession();
+  const { session, logout, updateProfile } = useAuthSession();
 
   return (
     <BrowserRouter>
-      <Layout session={session} onLogout={logout}>
+      <Layout session={session} onLogout={logout} onUpdateProfile={updateProfile}>
         <Routes>
           <Route path="/" element={<StoreFront session={session} />} />
           <Route path="/auth" element={<AuthPortal session={session} />} />

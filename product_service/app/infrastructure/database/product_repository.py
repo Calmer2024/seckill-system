@@ -1,6 +1,7 @@
+import json
 from decimal import Decimal
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -27,7 +28,16 @@ class SqlAlchemyProductRepository(ProductRepository):
     def list_products(self, page: int, size: int, keyword: str | None) -> list[ProductEntity]:
         statement = select(Product)
         if keyword:
-            statement = statement.where(Product.name.like(f"%{keyword}%"))
+            like_pattern = f"%{keyword}%"
+            statement = statement.where(
+                or_(
+                    Product.name.like(like_pattern),
+                    Product.category.like(like_pattern),
+                    Product.highlight.like(like_pattern),
+                    Product.summary.like(like_pattern),
+                    Product.tags.like(like_pattern),
+                )
+            )
 
         statement = statement.order_by(Product.id.asc()).offset((page - 1) * size).limit(size)
         products = self._execute_read(statement).scalars().all()
@@ -36,7 +46,16 @@ class SqlAlchemyProductRepository(ProductRepository):
     def count_products(self, keyword: str | None) -> int:
         statement = select(func.count(Product.id))
         if keyword:
-            statement = statement.where(Product.name.like(f"%{keyword}%"))
+            like_pattern = f"%{keyword}%"
+            statement = statement.where(
+                or_(
+                    Product.name.like(like_pattern),
+                    Product.category.like(like_pattern),
+                    Product.highlight.like(like_pattern),
+                    Product.summary.like(like_pattern),
+                    Product.tags.like(like_pattern),
+                )
+            )
         return int(self._execute_read(statement).scalar_one())
 
     def get_database_route_snapshot(self) -> DatabaseRouteSnapshot:
@@ -96,4 +115,11 @@ class SqlAlchemyProductRepository(ProductRepository):
             name=product.name,
             price=Decimal(str(product.price)),
             stock=product.stock,
+            category=product.category,
+            rating=float(product.rating or 0),
+            review_count=int(product.review_count or 0),
+            tags=json.loads(product.tags or "[]"),
+            summary=product.summary or "",
+            highlight=product.highlight or "",
+            visual_icon=product.visual_icon or "lucide:package-open",
         )

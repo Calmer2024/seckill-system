@@ -1,6 +1,10 @@
 import os
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, Header, HTTPException, status
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.orm import Session
 import bcrypt
 from jose import jwt, JWTError
@@ -11,8 +15,25 @@ import models
 import schemas
 from database import engine, get_db
 
+# ================= 数据库轻量迁移 =================
+def ensure_user_schema():
+    inspector = inspect(engine)
+    try:
+        columns = {column["name"] for column in inspector.get_columns("users")}
+    except NoSuchTableError:
+        return
+    if "avatar_url" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1024) NOT NULL DEFAULT '/avatar.JPG'")
+        )
+
+
 # 1. 自动在 MySQL 中创建表 (生产环境通常用 Alembic 迁移，作业里这样写最快)
 models.Base.metadata.create_all(bind=engine)
+ensure_user_schema()
 
 # 2. 初始化 FastAPI 应用
 app = FastAPI(title="用户服务 (User Service)", version="1.0.0")
@@ -54,6 +75,38 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
+def get_current_user(
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    db: Session = Depends(get_db),
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登录或登录已失效",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录凭证无效，请重新登录",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户不存在或登录已失效",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
 # ================= 新增：配置跨域资源共享 (CORS) =================
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +130,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
     # 2. 密码加密存储
     hashed_password = get_password_hash(user.password)
-    new_user = models.User(username=user.username, password_hash=hashed_password)
+    new_user = models.User(username=user.username, password_hash=hashed_password, avatar_url="/avatar.JPG")
 
     # 3. 写入数据库
     db.add(new_user)
@@ -105,3 +158,21 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(db_user.id), "username": db_user.username})
 
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/api/users/profile", response_model=schemas.UserResponse)
+def get_profile(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
+@app.put("/api/users/profile", response_model=schemas.UserResponse)
+def update_profile(
+    payload: schemas.UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    current_user.avatar_url = payload.avatar_url.strip()
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
