@@ -42,7 +42,7 @@ rules:
         tableStrategy:
           standard:
             shardingColumn: order_id
-            shardingAlgorithmName: order_table_inline
+            shardingAlgorithmName: payment_table_inline
       t_order_outbox_event:
         actualDataNodes: ds_${0..1}.t_order_outbox_event_${0..1}
         databaseStrategy:
@@ -68,10 +68,11 @@ rules:
         type: INLINE
         props:
           algorithm-expression: t_order_${order_id % 2}
+      payment_table_inline:
+        type: INLINE
+        props:
+          algorithm-expression: t_payment_${order_id % 2}
       outbox_table_inline:
         type: INLINE
         props:
           algorithm-expression: t_order_outbox_event_${aggregate_id % 2}
-
-props:
-  sql-show: true

@@ -14,5 +14,10 @@ export const orderApi = {
 
   getMyOrders: () => {
     return http.get('/api/orders');
-  }
+  },
+
+  payOrder: (orderId, amount) => {
+    const payload = amount ? { amount } : {};
+    return http.post(`/api/orders/${orderId}/pay`, payload);
+  },
 };

@@ -18,7 +18,11 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="用户服务 (User Service)", version="1.0.0")
 
 # 4. JWT 配置 (从环境变量读取)
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_key_for_dev")
+SECRET_KEY = (
+    os.getenv("JWT_SECRET_KEY")
+    or os.getenv("SECRET_KEY")
+    or "fallback_secret_key_for_dev"
+)
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 

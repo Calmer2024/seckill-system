@@ -11,4 +11,4 @@ authority:
     type: ALL_PERMITTED
 
 props:
-  sql-show: true
+  sql-show: false

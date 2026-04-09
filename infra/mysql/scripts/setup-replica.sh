@@ -13,6 +13,8 @@ done
 
 echo "Configuring mysql-replica..."
 mysql -h mysql-replica -uroot -p"${MYSQL_ROOT_PASSWORD}" <<SQL
+SET GLOBAL super_read_only = OFF;
+SET GLOBAL read_only = OFF;
 STOP REPLICA;
 RESET REPLICA ALL;
 CHANGE REPLICATION SOURCE TO
@@ -23,6 +25,8 @@ CHANGE REPLICATION SOURCE TO
   SOURCE_AUTO_POSITION=1,
   GET_SOURCE_PUBLIC_KEY=1;
 START REPLICA;
+SET GLOBAL read_only = ON;
+SET GLOBAL super_read_only = ON;
 SHOW REPLICA STATUS\G
 SQL
 

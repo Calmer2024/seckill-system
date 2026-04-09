@@ -8,7 +8,7 @@ import httpx
 from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer
 from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -256,35 +256,48 @@ class OrderRepository:
         return list(self.session.execute(statement).scalars().all())
 
     def mark_outbox_published(self, event: OrderOutboxEvent) -> None:
-        target = self.session.execute(
-            select(OrderOutboxEvent).where(
+        result = self.session.execute(
+            update(OrderOutboxEvent)
+            .where(
                 OrderOutboxEvent.id == event.id,
                 OrderOutboxEvent.aggregate_id == event.aggregate_id,
                 OrderOutboxEvent.user_id == event.user_id,
             )
-        ).scalar_one_or_none()
-        if target is None:
+            .values(
+                status="PUBLISHED",
+                published_at=utcnow(),
+            )
+        )
+        if result.rowcount == 0:
             self.session.rollback()
             return
-        target.status = "PUBLISHED"
-        target.published_at = utcnow()
         self.session.commit()
 
     def mark_outbox_retry(self, event: OrderOutboxEvent) -> None:
-        target = self.session.execute(
-            select(OrderOutboxEvent).where(
+        snapshot = self.session.execute(
+            select(OrderOutboxEvent.retry_count).where(
                 OrderOutboxEvent.id == event.id,
                 OrderOutboxEvent.aggregate_id == event.aggregate_id,
                 OrderOutboxEvent.user_id == event.user_id,
             )
-        ).scalar_one_or_none()
-        if target is None:
+        ).one_or_none()
+        if snapshot is None:
             self.session.rollback()
             return
-        retry_count = target.retry_count + 1
-        target.retry_count = retry_count
-        target.status = "RETRY"
-        target.next_retry_at = utcnow() + timedelta(seconds=min(retry_count * 2, 30))
+        retry_count = snapshot[0] + 1
+        self.session.execute(
+            update(OrderOutboxEvent)
+            .where(
+                OrderOutboxEvent.id == event.id,
+                OrderOutboxEvent.aggregate_id == event.aggregate_id,
+                OrderOutboxEvent.user_id == event.user_id,
+            )
+            .values(
+                retry_count=retry_count,
+                status="RETRY",
+                next_retry_at=utcnow() + timedelta(seconds=min(retry_count * 2, 30)),
+            )
+        )
         self.session.commit()
 
 

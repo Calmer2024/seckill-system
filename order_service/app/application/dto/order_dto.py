@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class SeckillOrderRequest(BaseModel):
@@ -14,6 +14,10 @@ class SeckillOrderAcceptedResponse(BaseModel):
     status: str
     message: str
 
+    @field_serializer("order_id")
+    def serialize_order_id(self, value: int) -> str:
+        return str(value)
+
 
 class PaymentRequest(BaseModel):
     amount: Decimal | None = Field(default=None, gt=0, description="支付金额，不传时按订单金额支付")
@@ -24,6 +28,10 @@ class PaymentAcceptedResponse(BaseModel):
     payment_status: str
     order_status: str
     message: str
+
+    @field_serializer("order_id")
+    def serialize_order_id(self, value: int) -> str:
+        return str(value)
 
 
 class OrderResponse(BaseModel):
@@ -40,11 +48,19 @@ class OrderResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    @field_serializer("order_id")
+    def serialize_order_id(self, value: int) -> str:
+        return str(value)
+
 
 class PendingOrderResponse(BaseModel):
     order_id: int
     status: str
     message: str
+
+    @field_serializer("order_id")
+    def serialize_order_id(self, value: int) -> str:
+        return str(value)
 
 
 class OrderCreatedEvent(BaseModel):

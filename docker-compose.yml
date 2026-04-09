@@ -31,8 +31,6 @@ services:
       - --binlog-format=ROW
       - --gtid-mode=ON
       - --enforce-gtid-consistency=ON
-      - --read-only=ON
-      - --super-read-only=ON
     environment:
       MYSQL_ROOT_PASSWORD: 418124
       MYSQL_DATABASE: seckill_db
@@ -81,22 +79,24 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 | grep imok"]
+      test: ["CMD-SHELL", "echo srvr | nc -w 2 127.0.0.1 2181 | grep Mode >/dev/null || exit 1"]
+      start_period: 30s
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: seckill_kafka
     ports:
-      - "9092:9092"
+      - "9092:29092"
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -121,6 +121,8 @@ services:
     container_name: seckill_user
     environment:
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
+      SECRET_KEY: fallback_secret_key_for_dev
+      JWT_SECRET_KEY: fallback_secret_key_for_dev
     depends_on:
       mysql-primary:
         condition: service_healthy
