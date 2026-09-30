@@ -1,0 +1,126 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP RPS",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "all services", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "p95 HTTP latency",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, service))", "legendFormat": "{{service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP error rate",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(rate(http_requests_total{status=~\"4..|5..\"}[1m])) / clamp_min(sum(rate(http_requests_total[1m])), 1)", "legendFormat": "4xx + 5xx", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Product cache hit rate",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "sum(rate(product_cache_operations_total{operation=\"get\",result=\"hit\"}[5m])) / clamp_min(sum(rate(product_cache_operations_total{operation=\"get\"}[5m])), 1)", "legendFormat": "cache hit rate", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Redis clients and commands",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {"expr": "redis_connected_clients", "legendFormat": "connected clients", "refId": "A"},
+        {"expr": "rate(redis_commands_processed_total[1m])", "legendFormat": "commands/sec", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Kafka consumer lag",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "sum(kafka_consumergroup_lag) by (consumergroup, topic)", "legendFormat": "{{consumergroup}} / {{topic}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "MySQL connections and slow queries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [
+        {"expr": "mysql_global_status_threads_connected", "legendFormat": "connections", "refId": "A"},
+        {"expr": "rate(mysql_global_status_slow_queries[5m])", "legendFormat": "slow queries/sec", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Container CPU and memory",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [
+        {"expr": "sum(rate(container_cpu_usage_seconds_total{name!=\"\"}[1m])) by (name)", "legendFormat": "CPU {{name}}", "refId": "A"},
+        {"expr": "container_memory_working_set_bytes{name!=\"\"}", "legendFormat": "memory {{name}}", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Business convergence",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "targets": [
+        {"expr": "performance_inventory_stock", "legendFormat": "inventory {{state}}", "refId": "A"},
+        {"expr": "performance_valid_order_total", "legendFormat": "valid orders", "refId": "B"},
+        {"expr": "performance_state_converged", "legendFormat": "state converged", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Outbox pending and peak",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "targets": [
+        {"expr": "performance_outbox_pending", "legendFormat": "pending {{service}}", "refId": "A"},
+        {"expr": "performance_outbox_pending_peak", "legendFormat": "peak {{service}}", "refId": "B"},
+        {"expr": "performance_outbox_oldest_age_seconds", "legendFormat": "oldest age {{service}}", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["seckill", "performance"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Seckill Performance Overview",
+  "uid": "seckill-performance",
+  "version": 1
+}

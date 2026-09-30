@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     KAFKA_PAYMENT_GROUP_ID: str = "seckill-order-payment"
     OUTBOX_PUBLISH_BATCH_SIZE: int = 50
     OUTBOX_POLL_INTERVAL_SECONDS: float = 1.0
+    ENABLE_KAFKA_ASYNC: bool = True
+    ENABLE_ORDER_OUTBOX: bool = True
 
     JWT_SECRET_KEY: str = "fallback_secret_key_for_dev"
     JWT_ALGORITHM: str = "HS256"

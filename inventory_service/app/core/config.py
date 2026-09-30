@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     REDIS_SOCKET_TIMEOUT_SECONDS: int = 1
     SECKILL_RESERVATION_TTL_SECONDS: int = 900
     ORDER_STATUS_TTL_SECONDS: int = 1800
+    ENABLE_REDIS_STOCK_RESERVATION: bool = True
+    ENABLE_INVENTORY_OUTBOX: bool = True
 
     KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
     KAFKA_ORDER_CREATED_TOPIC: str = "seckill-order-created-topic"

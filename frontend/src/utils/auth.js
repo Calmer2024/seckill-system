@@ -51,7 +51,7 @@ export function getAuthSession() {
     token,
     username,
     userId,
-    avatarUrl: profile?.avatar_url ?? '/avatar.JPG',
+    avatarUrl: profile?.avatar_url && profile.avatar_url !== '/avatar.JPG' ? profile.avatar_url : '',
     createdAt: profile?.created_at ?? null,
     profile,
     isAuthenticated: Boolean(token && username),

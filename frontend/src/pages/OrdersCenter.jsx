@@ -99,78 +99,29 @@ export default function OrdersCenter({ session }) {
 
   if (!session.isAuthenticated) {
     return (
-      <section className="dream-shell pt-28 md:pt-32">
-        <div className="dream-panel grid gap-8 overflow-hidden lg:grid-cols-[1fr_0.95fr]">
-          <div className="bg-primary px-6 py-8 text-white md:px-8 md:py-10">
-            <div className="dream-kicker text-white/55">Dreamstore 订单中心</div>
-            <h1 className="mt-3 text-[clamp(2.15rem,5vw,3.45rem)] font-black leading-[1.24] tracking-[0.1em]">
-              登录之后，
-              <br />
-              才能查看
-              <br />
-              你的订单。
-            </h1>
-            <p className="mt-4 max-w-lg text-sm leading-7 text-white/72">
-              登录后你可以查看自己的购物订单、订单状态，并直接完成支付。
-            </p>
-          </div>
-
-          <div className="flex flex-col justify-center px-6 py-8 md:px-8 md:py-10">
-            <div className="rounded-[1.8rem] border border-[#EAEAEA] bg-white p-6">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white">
-                <Icon icon="lucide:lock" className="h-6 w-6" />
-              </div>
-              <div className="mt-5 text-3xl font-black tracking-[-0.05em] text-primary">订单中心需要先登录</div>
-              <p className="mt-3 text-sm leading-7 text-text-muted">
-                登录后订单中心会自动展示你的秒杀订单、待支付订单和最新支付状态。
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3 md:flex-row">
-              <Link to="/auth?redirect=/orders" className="dream-button-primary flex-1">
-                前往登录
-              </Link>
-              <Link to="/" className="dream-button-secondary flex-1">
-                返回首页
-              </Link>
-            </div>
-          </div>
+      <section className="dream-shell pb-20 pt-32 md:pt-40">
+        <div className="mx-auto max-w-[640px] text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f5f5f7] text-[#6e6e73]"><Icon icon="lucide:package" className="h-7 w-7" /></div>
+          <h1 className="mt-7 text-[clamp(2.5rem,5vw,4rem)] font-semibold leading-tight tracking-[-0.055em] text-[#1d1d1f]">查看你的订单。</h1>
+          <p className="mx-auto mt-4 max-w-md text-base leading-8 text-[#6e6e73]">登录后即可查看订单进度、支付状态，并继续完成待支付订单。</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3"><Link to="/auth?redirect=/orders" className="dream-button-primary">前往登录</Link><Link to="/" className="dream-button-secondary">继续选购</Link></div>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="dream-shell space-y-8 pt-28 md:pt-32">
-      <section className="dream-panel overflow-hidden">
-        <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="bg-primary px-6 py-8 text-white md:px-8 md:py-10">
-            <div className="dream-kicker text-white/55">订单中心</div>
-            <h1 className="mt-3 text-[clamp(2.1rem,5vw,3.55rem)] font-black leading-[1.24] tracking-[0.1em]">
-              统一查看
-              <br />
-              购物订单与
-              <br />
-              支付状态。
-            </h1>
-            <p className="mt-4 max-w-lg text-sm leading-7 text-white/72">
-              订单中心会持续刷新最新状态，让你随时查看待付款订单、已支付订单和最新处理结果。
-            </p>
-          </div>
-
-            <div className="grid gap-4 px-6 py-6 md:grid-cols-3 md:px-8 md:py-8">
-              {metrics.map((item) => (
-              <div key={item.label} className="rounded-[1.75rem] border border-[#EAEAEA] bg-white p-5">
-                <div className="text-xs uppercase tracking-[0.2em] text-text-muted">{item.label}</div>
-                <div className="mt-3 text-4xl font-black tracking-[-0.06em] text-primary">{item.value}</div>
-              </div>
-            ))}
-          </div>
+    <section className="dream-shell space-y-7 pb-20 pt-28 md:pt-32">
+      <section className="border-b border-[#e5e5e7] pb-9">
+        <p className="text-sm font-semibold text-[#bf4800]">你的商店</p>
+        <div className="mt-2 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div><h1 className="text-[clamp(2.6rem,5vw,4.3rem)] font-semibold leading-tight tracking-[-0.055em] text-[#1d1d1f]">订单。</h1><p className="mt-3 text-sm leading-7 text-[#6e6e73]">查看每笔购买的进度与支付状态。订单会自动更新。</p></div>
+          <div className="flex gap-8 md:pb-2">{metrics.map((item) => <div key={item.label}><p className="text-[1.7rem] font-semibold tracking-[-0.05em] text-[#1d1d1f] tabular-nums">{item.value}</p><p className="text-xs text-[#6e6e73]">{item.label}</p></div>)}</div>
         </div>
       </section>
 
       {message ? (
-        <div className="rounded-[1.6rem] border border-[#E8E2D8] bg-white px-5 py-4 text-sm text-primary">{message}</div>
+        <div role="status" className="rounded-2xl bg-[#f5f5f7] px-5 py-4 text-sm text-[#1d1d1f]">{message}</div>
       ) : null}
 
       {syncing && !loading ? (
@@ -180,57 +131,41 @@ export default function OrdersCenter({ session }) {
       {loading ? (
         <div className="grid gap-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-40 animate-pulse rounded-[2rem] bg-[#F2EEE8]" />
+            <div key={index} className="h-40 animate-pulse rounded-[1.6rem] bg-[#f5f5f7]" />
           ))}
         </div>
       ) : orders.length === 0 ? (
-        <div className="dream-panel px-6 py-12 text-center">
-          <div className="text-3xl font-black tracking-[-0.05em] text-primary">还没有秒杀订单</div>
+        <div className="rounded-[1.8rem] bg-[#f5f5f7] px-6 py-16 text-center">
+          <div className="text-[1.8rem] font-semibold tracking-[-0.045em] text-[#1d1d1f]">还没有订单。</div>
           <p className="mt-3 text-sm leading-7 text-text-muted">
             去商品页挑选一件喜欢的商品，下单成功后这里会自动出现你的订单。
           </p>
           <div className="mt-8">
-            <button type="button" onClick={() => navigate('/flash-sale/1')} className="dream-button-primary">
-              去秒杀会场
+            <button type="button" onClick={() => navigate('/')} className="dream-button-primary">
+              浏览商品
             </button>
           </div>
         </div>
       ) : (
         <div className="grid gap-4">
           {orders.map((order) => (
-            <article key={order.order_id} className="dream-panel p-5 md:p-6">
-              <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="dream-subpanel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-text-muted">订单号</div>
-                    <div className="mt-2 break-all text-sm font-black text-primary">{order.order_id}</div>
-                  </div>
-                  <div className="dream-subpanel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-text-muted">商品 ID</div>
-                    <div className="mt-2 text-sm font-black text-primary">{order.product_id}</div>
-                  </div>
-                  <div className="dream-subpanel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-text-muted">订单金额</div>
-                    <div className="mt-2 text-sm font-black text-primary">¥{formatAmount(order.total_amount)}</div>
-                  </div>
-                  <div className="dream-subpanel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-text-muted">订单状态</div>
-                    <div className="mt-2 text-sm font-black text-primary">{statusTextMap[order.status] || order.status}</div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Link to={`/products/${order.product_id}`} className="dream-button-secondary">
-                    查看商品
-                  </Link>
-                  <button
+            <article key={order.order_id} className="rounded-[1.8rem] bg-[#f5f5f7] p-6 md:p-8">
+              <div className="flex flex-col justify-between gap-5 border-b border-black/10 pb-6 sm:flex-row sm:items-start">
+                <div><p className="text-xs font-medium text-[#6e6e73]">订单号 {order.order_id}</p><h2 className="mt-2 text-[1.45rem] font-semibold tracking-[-0.035em] text-[#1d1d1f]">商品 #{order.product_id}</h2></div>
+                <span className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${order.status === 'PAID' ? 'bg-[#e8f5eb] text-[#217a39]' : order.status === 'FAILED' ? 'bg-[#fff0ef] text-[#b42318]' : 'bg-white text-[#6e6e73]'}`}>{statusTextMap[order.status] || order.status}</span>
+              </div>
+              <div className="flex flex-col justify-between gap-5 pt-6 sm:flex-row sm:items-end">
+                <div><p className="text-xs text-[#6e6e73]">订单金额</p><p className="mt-1 text-[1.8rem] font-semibold tracking-[-0.05em] text-[#1d1d1f] tabular-nums">¥{formatAmount(order.total_amount)}</p></div>
+                <div className="flex flex-wrap gap-3">
+                  <Link to={`/products/${order.product_id}`} className="dream-button-secondary">查看商品</Link>
+                  {['CREATED', 'PAYING'].includes(order.status) ? <button
                     type="button"
                     onClick={() => handlePay(order)}
-                    disabled={!['CREATED', 'PAYING'].includes(order.status) || payingOrderId === order.order_id}
+                    disabled={payingOrderId === order.order_id}
                     className="dream-button-primary disabled:opacity-50"
                   >
                     {payingOrderId === order.order_id ? '支付处理中...' : '支付订单'}
-                  </button>
+                  </button> : null}
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import redis
 
 from app.domain.services.cache_service import CacheService
 from app.infrastructure.logging.logger import get_logger
+from app.observability.metrics import PRODUCT_CACHE_OPERATIONS_TOTAL
 
 logger = get_logger(__name__)
 
@@ -24,11 +25,15 @@ class RedisCacheService(CacheService):
         try:
             raw_value = self.redis_client.get(key)
             if raw_value is None:
+                PRODUCT_CACHE_OPERATIONS_TOTAL.labels("get", "miss").inc()
                 return None
             if raw_value == self.null_placeholder:
+                PRODUCT_CACHE_OPERATIONS_TOTAL.labels("get", "null").inc()
                 return self.null_placeholder
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("get", "hit").inc()
             return json.loads(raw_value)
         except (redis.RedisError, json.JSONDecodeError) as exc:
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("get", "error").inc()
             logger.error(
                 "redis get failed",
                 exc_info=exc,
@@ -39,8 +44,10 @@ class RedisCacheService(CacheService):
     def set_json(self, key: str, payload: object, ttl_seconds: int) -> bool:
         try:
             self.redis_client.set(name=key, value=json.dumps(payload), ex=ttl_seconds)
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "success").inc()
             return True
         except redis.RedisError as exc:
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "error").inc()
             logger.error(
                 "redis set failed",
                 exc_info=exc,
@@ -51,8 +58,10 @@ class RedisCacheService(CacheService):
     def set_placeholder(self, key: str, ttl_seconds: int) -> bool:
         try:
             self.redis_client.set(name=key, value=self.null_placeholder, ex=ttl_seconds)
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "success").inc()
             return True
         except redis.RedisError as exc:
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "error").inc()
             logger.error(
                 "redis placeholder set failed",
                 exc_info=exc,
@@ -92,8 +101,10 @@ class RedisCacheService(CacheService):
             for key, payload, ttl_seconds in entries:
                 pipeline.set(name=key, value=json.dumps(payload), ex=ttl_seconds)
             pipeline.execute()
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "success").inc(len(entries))
             return True
         except redis.RedisError as exc:
+            PRODUCT_CACHE_OPERATIONS_TOTAL.labels("set", "error").inc()
             logger.error(
                 "redis bulk set failed",
                 exc_info=exc,

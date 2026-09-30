@@ -9,6 +9,7 @@ class InventoryReservationRequest(BaseModel):
     user_id: int
     product_id: int = Field(gt=0)
     quantity: int = Field(default=1, ge=1, le=1)
+    confirm_immediately: bool = False
 
 
 class InventoryReservationResponse(BaseModel):

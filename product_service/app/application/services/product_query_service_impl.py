@@ -17,6 +17,7 @@ from app.core.exceptions.business_exception import BusinessException
 from app.domain.repositories.product_repository import ProductRepository
 from app.domain.services.cache_service import CacheService
 from app.infrastructure.logging.logger import get_logger
+from app.observability.metrics import PRODUCT_DB_READS_TOTAL
 
 logger = get_logger(__name__)
 
@@ -31,6 +32,9 @@ class ProductQueryServiceImpl(ProductQueryService):
         self.cache_service = cache_service
 
     def list_products(self, query: ProductListQuery) -> list[ProductResponse]:
+        if not settings.ENABLE_PRODUCT_CACHE:
+            return [ProductResponse.from_entity(product) for product in self._load_products_from_db(query)]
+
         cache_key = self._build_list_cache_key(query.page, query.size, query.keyword)
         cached_payload = self.cache_service.get_json(cache_key)
         if isinstance(cached_payload, list):
@@ -54,6 +58,16 @@ class ProductQueryServiceImpl(ProductQueryService):
         )
 
     def get_product_detail(self, product_id: int) -> ProductResponse:
+        if not settings.ENABLE_PRODUCT_CACHE:
+            product = self._load_product_from_db(product_id)
+            if product is None:
+                raise BusinessException(
+                    code="PRODUCT_NOT_FOUND",
+                    message="商品不存在",
+                    status_code=404,
+                )
+            return ProductResponse.from_entity(product)
+
         cache_key = self._build_detail_cache_key(product_id)
         cached_payload = self.cache_service.get_json(cache_key)
 
@@ -267,6 +281,7 @@ class ProductQueryServiceImpl(ProductQueryService):
     def _load_products_from_db(self, query: ProductListQuery):
         try:
             products = self.product_repository.list_products(query.page, query.size, query.keyword)
+            PRODUCT_DB_READS_TOTAL.labels("list", "success").inc()
             logger.info(
                 "product list loaded from database",
                 extra={
@@ -279,6 +294,7 @@ class ProductQueryServiceImpl(ProductQueryService):
             )
             return products
         except SQLAlchemyError as exc:
+            PRODUCT_DB_READS_TOTAL.labels("list", "error").inc()
             logger.error(
                 "product list db read failed",
                 exc_info=exc,
@@ -293,6 +309,7 @@ class ProductQueryServiceImpl(ProductQueryService):
     def _load_product_from_db(self, product_id: int):
         try:
             product = self.product_repository.get_by_id(product_id)
+            PRODUCT_DB_READS_TOTAL.labels("detail", "success").inc()
             logger.info(
                 "product detail loaded from database",
                 extra={
@@ -303,6 +320,7 @@ class ProductQueryServiceImpl(ProductQueryService):
             )
             return product
         except SQLAlchemyError as exc:
+            PRODUCT_DB_READS_TOTAL.labels("detail", "error").inc()
             logger.error(
                 "product detail db read failed",
                 exc_info=exc,

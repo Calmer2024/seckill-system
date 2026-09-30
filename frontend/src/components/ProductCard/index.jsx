@@ -6,26 +6,11 @@ export function ProductArtwork({ product, compact = false }) {
   return (
     <div
       className={[
-        'relative overflow-hidden rounded-[2rem] border border-[#F0F0F0] bg-[linear-gradient(180deg,#F8F8F8_0%,#F1F1F1_100%)]',
-        compact ? 'h-48 p-5' : 'h-60 p-6',
+        'product-artwork relative overflow-hidden rounded-[1.5rem] bg-[#f5f5f7]',
+        compact ? 'aspect-[4/3]' : 'aspect-[5/4]',
       ].join(' ')}
     >
-      <div className="absolute inset-x-[18%] top-5 h-8 rounded-full bg-white/70 blur-2xl" />
-      <div className="absolute inset-x-[26%] bottom-5 h-6 rounded-full bg-black/8 blur-xl" />
-      <div className="absolute -right-8 top-4 h-28 w-28 rounded-full bg-white/50 blur-3xl" />
-      <div className="relative flex h-full items-center justify-center">
-        <div
-          className={[
-            'flex items-center justify-center rounded-[2rem] border border-white/80 bg-white shadow-[0_26px_50px_-24px_rgba(17,24,39,0.28)]',
-            compact ? 'h-28 w-28' : 'h-36 w-36',
-          ].join(' ')}
-        >
-          <Icon
-            icon={product.visualIcon || 'lucide:package-open'}
-            className={compact ? 'h-14 w-14 text-primary' : 'h-16 w-16 text-primary'}
-          />
-        </div>
-      </div>
+      <img src={product.imageUrl} alt={product.name} loading="lazy" className="product-artwork-image h-full w-full object-cover" />
     </div>
   );
 }
@@ -37,6 +22,7 @@ export default function ProductCard({
   primaryActionLabel = '立即抢购',
   primaryActionTo = `/flash-sale/${product.id}`,
   compact = false,
+  revealIndex = 0,
 }) {
   const navigate = useNavigate();
 
@@ -50,52 +36,40 @@ export default function ProductCard({
       tabIndex={0}
       onClick={handleCardNavigate}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           handleCardNavigate();
         }
       }}
-      className="cursor-pointer rounded-[2rem] border border-[#EEEEEE] bg-white p-4 shadow-[0_18px_45px_-38px_rgba(17,24,39,0.22)] transition-transform duration-300 hover:-translate-y-1"
+      aria-label={`查看${product.name}详情`}
+      className="product-card group cursor-pointer overflow-hidden rounded-[1.8rem] bg-[#f5f5f7] p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0071e3]"
+      style={{ '--reveal-index': revealIndex }}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <span className="rounded-full bg-[#F6F6F6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-          {product.categoryBadge}
-        </span>
-        <span className="rounded-full border border-[#EEEEEE] bg-white px-3 py-1 text-[11px] font-medium text-text-muted">
-          {product.highlight}
-        </span>
-      </div>
-
       <ProductArtwork product={product} compact={compact} />
 
-      <div className="mt-4">
-        <h3 className="text-[1.1rem] font-bold tracking-[-0.03em] text-primary">{product.name}</h3>
-        <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
-          <Icon icon="lucide:star" className="h-4 w-4 text-accent-yellow" />
-          <span>{product.rating}</span>
-          <span>({product.reviewsLabel})</span>
-        </div>
-        <div className="mt-3 flex items-end justify-between gap-3">
-          <div>
-            <div className="text-xs text-text-muted">{product.categoryLabel}</div>
-            <div className="text-2xl font-black tracking-[-0.05em] text-primary">¥{product.priceLabel}</div>
-          </div>
-          <div className="text-right text-xs text-text-muted">{product.stockLabel}</div>
+      <div className="px-3 pb-3 pt-5 md:px-4">
+        <p className="text-[0.7rem] font-semibold tracking-[0.09em] text-[#6e6e73]">{product.categoryLabel}</p>
+        <h3 className="mt-2 min-h-[3.1rem] text-[1.35rem] font-semibold leading-[1.2] tracking-[-0.035em] text-[#1d1d1f]">{product.name}</h3>
+        <p className="mt-2 line-clamp-1 text-[0.82rem] leading-6 text-[#6e6e73]">{product.highlight}</p>
+        <div className="mt-5 flex items-end justify-between gap-3 border-t border-black/8 pt-4">
+          <div><p className="text-[0.72rem] text-[#6e6e73]">秒杀价</p><p className="mt-0.5 text-[1.55rem] font-semibold tracking-[-0.045em] text-[#1d1d1f] tabular-nums">¥{product.priceLabel}</p></div>
+          <span className="pb-1 text-xs text-[#6e6e73]">{product.stockLabel}</span>
         </div>
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="flex items-center gap-4 px-6 pb-5 text-[0.82rem] font-medium md:px-7">
         <Link
           to={quickActionTo}
           onClick={(event) => event.stopPropagation()}
-          className="flex-1 rounded-full border border-[#E5E7EB] bg-white px-4 py-3 text-center text-sm font-semibold text-primary transition-colors hover:bg-[#F5F5F5]"
+          className="inline-flex items-center gap-1 text-[#0066cc] hover:underline"
         >
-          {quickActionLabel}
+          {quickActionLabel}<Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
         </Link>
         <Link
           to={primaryActionTo}
           onClick={(event) => event.stopPropagation()}
-          className="flex-1 rounded-full bg-primary px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+          className="rounded-full bg-[#1d1d1f] px-4 py-2 text-white transition-colors hover:bg-[#424245]"
         >
           {primaryActionLabel}
         </Link>

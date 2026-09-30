@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard';
 import { productApi } from '../services/productApi';
-import { decorateProduct, getCategoryDefinitions, getQuickFilters } from '../utils/catalog';
+import { decorateProduct, getCategoryDefinitions, getQuickFilters, isStoreProduct } from '../utils/catalog';
 
 const PAGE_SIZE = 9;
 
@@ -75,7 +75,7 @@ export default function StoreFront({ session }) {
         if (!active) {
           return;
         }
-        setProducts(response.map((item, index) => decorateProduct(item, index)));
+        setProducts(response.filter(isStoreProduct).map((item, index) => decorateProduct(item, index)));
         setError('');
       } catch (requestError) {
         if (active) {
@@ -107,7 +107,7 @@ export default function StoreFront({ session }) {
       try {
         const response = await productApi.searchProducts(searchKeyword.trim(), 5);
         if (active) {
-          setSuggestions(response.map((item, index) => decorateProduct(item, index)));
+          setSuggestions(response.filter(isStoreProduct).map((item, index) => decorateProduct(item, index)));
         }
       } catch {
         if (active) {
@@ -256,10 +256,11 @@ export default function StoreFront({ session }) {
                 ) : currentPageProducts.length > 0 ? (
                   <>
                     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                      {currentPageProducts.map((product) => (
+                      {currentPageProducts.map((product, index) => (
                         <ProductCard
                           key={product.id}
                           product={product}
+                          revealIndex={index}
                           quickActionLabel="查看详情"
                           quickActionTo={`/products/${product.id}`}
                           primaryActionLabel={session.isAuthenticated ? '立即购买' : '去登录'}
@@ -297,10 +298,11 @@ export default function StoreFront({ session }) {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {recommendedProducts.map((product) => (
+          {recommendedProducts.map((product, index) => (
             <ProductCard
               key={`recommend-${product.id}`}
               product={product}
+              revealIndex={index}
               compact
               quickActionLabel="查看详情"
               quickActionTo={`/products/${product.id}`}

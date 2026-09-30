@@ -16,4 +16,12 @@ export const userApi = {
   updateProfile: (payload) => {
     return http.put('/api/users/profile', payload);
   },
+
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post('/api/users/profile/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };

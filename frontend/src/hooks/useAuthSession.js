@@ -58,9 +58,17 @@ export function useAuthSession() {
     return profile;
   };
 
+  const uploadAvatar = async (file) => {
+    const profile = await userApi.uploadAvatar(file);
+    saveUserProfile(profile);
+    setSession(getAuthSession());
+    return profile;
+  };
+
   return {
     session,
     logout: clearAccessToken,
     updateProfile,
+    uploadAvatar,
   };
 }

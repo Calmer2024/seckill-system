@@ -1,0 +1,22 @@
+groups:
+  - name: seckill-performance
+    rules:
+      - alert: HighHttpErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[2m]))
+          /
+          clamp_min(sum(rate(http_requests_total[2m])), 1)
+          > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: HTTP 5xx error rate is above 5 percent
+
+      - alert: KafkaConsumerLagGrowing
+        expr: sum(kafka_consumergroup_lag) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Kafka consumer lag is above 100 messages

@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 
 import { useAuthSession } from './hooks/useAuthSession';
@@ -7,7 +7,6 @@ import AuthPortal from './pages/AuthPortal';
 import FlashSaleArena from './pages/FlashSaleArena';
 import OrdersCenter from './pages/OrdersCenter';
 import StoreFront from './pages/StoreFront';
-import { avatarPresets, DEFAULT_AVATAR_URL } from './utils/avatarPresets';
 
 const navItems = [
   { to: '/', label: '首页', end: true },
@@ -42,21 +41,33 @@ function formatJoinDate(value) {
   }
 }
 
-function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
+function UserAvatarControl({ session, onLogout, onUploadAvatar }) {
   const [open, setOpen] = useState(false);
-  const [savingAvatar, setSavingAvatar] = useState('');
-  const activeAvatar = session.avatarUrl || DEFAULT_AVATAR_URL;
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef(null);
+  const activeAvatar = session.avatarUrl;
 
-  const handleAvatarSelect = async (avatarUrl) => {
-    if (!session.isAuthenticated || avatarUrl === activeAvatar) {
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
       return;
     }
 
-    setSavingAvatar(avatarUrl);
+    setAvatarError('');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setAvatarError('请选择不超过 2 MB 的 JPG、PNG 或 WebP 图片。');
+      return;
+    }
+
+    setSavingAvatar(true);
     try {
-      await onUpdateProfile({ avatar_url: avatarUrl });
+      await onUploadAvatar(file);
+    } catch (error) {
+      setAvatarError(error?.response?.data?.detail || '上传失败，请重试。');
     } finally {
-      setSavingAvatar('');
+      setSavingAvatar(false);
     }
   };
 
@@ -69,27 +80,30 @@ function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
       {session.isAuthenticated ? (
         <button
           type="button"
-          className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
           aria-label="用户资料"
         >
-          <img src={activeAvatar} alt="用户头像" className="h-10 w-10 object-cover" />
+          {activeAvatar ? <img src={activeAvatar} alt="用户头像" className="h-full w-full object-cover" /> : <Icon icon="lucide:user-round" className="h-5 w-5" />}
         </button>
       ) : (
         <Link
           to="/auth"
-          className="overflow-hidden rounded-full border border-[#EAEAEA] bg-white shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
           aria-label="用户中心"
         >
-          <img src={DEFAULT_AVATAR_URL} alt="用户头像" className="h-10 w-10 object-cover" />
+          <Icon icon="lucide:user-round" className="h-5 w-5" />
         </Link>
       )}
 
       {open ? (
         <div className="absolute right-0 top-[calc(100%+14px)] z-[80] w-[320px] rounded-[1.8rem] border border-[#ECECEC] bg-white p-4 shadow-[0_26px_56px_-36px_rgba(17,24,39,0.3)]">
+          <div aria-hidden="true" className="absolute -inset-x-px -top-[15px] h-[16px]" />
           {session.isAuthenticated ? (
             <>
               <div className="flex items-start gap-4">
-                <img src={activeAvatar} alt="当前头像" className="h-16 w-16 rounded-[1.2rem] object-cover" />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F5F5F5] text-primary">
+                  {activeAvatar ? <img src={activeAvatar} alt="当前头像" className="h-full w-full object-cover" /> : <Icon icon="lucide:user-round" className="h-8 w-8" />}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Dreamstore Member</div>
                   <div className="mt-2 truncate text-lg font-black tracking-[-0.04em] text-primary">{session.username}</div>
@@ -107,27 +121,14 @@ function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
               </div>
 
               <div className="mt-4 rounded-[1.4rem] bg-[#FAFAFA] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">切换头像</div>
-                <div className="mt-3 grid grid-cols-5 gap-2">
-                  {avatarPresets.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleAvatarSelect(item.url)}
-                      disabled={Boolean(savingAvatar)}
-                      className={[
-                        'overflow-hidden rounded-[1rem] border p-1 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60',
-                        activeAvatar === item.url ? 'border-primary bg-primary/3' : 'border-[#EAEAEA] bg-white',
-                      ].join(' ')}
-                      title={item.label}
-                    >
-                      <img src={item.url} alt={item.label} className="h-11 w-full rounded-[0.75rem] object-cover" />
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 text-xs leading-5 text-text-muted">
-                  悬浮在头像上即可查看资料卡，这里可以直接为当前账号切换头像。
-                </div>
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">个人头像</div>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} aria-label="上传头像图片" />
+                <button type="button" disabled={savingAvatar} onClick={() => fileInputRef.current?.click()} className="dream-button-secondary mt-3 w-full gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+                  <Icon icon="lucide:upload" className="h-4 w-4" />
+                  {savingAvatar ? '上传中…' : activeAvatar ? '更换头像' : '上传头像'}
+                </button>
+                <div className="mt-2 text-xs leading-5 text-text-muted">支持 JPG、PNG、WebP，文件不超过 2 MB。</div>
+                {avatarError ? <div role="alert" className="mt-2 text-xs text-red-600">{avatarError}</div> : null}
               </div>
 
               <div className="mt-4 flex gap-2">
@@ -142,7 +143,9 @@ function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
           ) : (
             <>
               <div className="flex items-center gap-4">
-                <img src={DEFAULT_AVATAR_URL} alt="默认头像" className="h-16 w-16 rounded-[1.2rem] object-cover" />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] text-primary">
+                  <Icon icon="lucide:user-round" className="h-8 w-8" />
+                </div>
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Guest</div>
                   <div className="mt-2 text-lg font-black tracking-[-0.04em] text-primary">登录后开启个人资料</div>
@@ -168,7 +171,7 @@ function UserAvatarControl({ session, onLogout, onUpdateProfile }) {
   );
 }
 
-function Header({ session, onLogout, onUpdateProfile }) {
+function Header({ session, onLogout, onUploadAvatar }) {
   return (
     <header className="absolute inset-x-0 top-0 z-50">
       <div className="dream-shell">
@@ -214,7 +217,7 @@ function Header({ session, onLogout, onUpdateProfile }) {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent-red" />
               </Link>
 
-              <UserAvatarControl session={session} onLogout={onLogout} onUpdateProfile={onUpdateProfile} />
+              <UserAvatarControl session={session} onLogout={onLogout} onUploadAvatar={onUploadAvatar} />
             </div>
           </div>
         </div>
@@ -318,7 +321,7 @@ function ScrollToTop() {
   return null;
 }
 
-function Layout({ session, onLogout, onUpdateProfile, children }) {
+function Layout({ session, onLogout, onUploadAvatar, children }) {
   const location = useLocation();
   const [toastMessage, setToastMessage] = useState('');
 
@@ -351,7 +354,7 @@ function Layout({ session, onLogout, onUpdateProfile, children }) {
   return (
     <div className="min-h-screen pb-4">
       <ScrollToTop />
-      <Header session={session} onLogout={onLogout} onUpdateProfile={onUpdateProfile} />
+      <Header session={session} onLogout={onLogout} onUploadAvatar={onUploadAvatar} />
       {toastMessage ? (
         <div className="fixed right-4 top-24 z-[70] md:right-6">
           <div className="flex items-center gap-3 rounded-[1.4rem] border border-[#DDEBDD] bg-white px-4 py-3 shadow-[0_20px_42px_-32px_rgba(17,24,39,0.28)]">
@@ -365,18 +368,18 @@ function Layout({ session, onLogout, onUpdateProfile, children }) {
           </div>
         </div>
       ) : null}
-      <main>{children}</main>
+      <main key={location.pathname} className="page-enter">{children}</main>
       <Footer />
     </div>
   );
 }
 
 export default function App() {
-  const { session, logout, updateProfile } = useAuthSession();
+  const { session, logout, uploadAvatar } = useAuthSession();
 
   return (
     <BrowserRouter>
-      <Layout session={session} onLogout={logout} onUpdateProfile={updateProfile}>
+      <Layout session={session} onLogout={logout} onUploadAvatar={uploadAvatar}>
         <Routes>
           <Route path="/" element={<StoreFront session={session} />} />
           <Route path="/auth" element={<AuthPortal session={session} />} />

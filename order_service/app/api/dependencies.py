@@ -3,7 +3,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.application.services.order_service import InventoryServiceClient, OrderApplicationService, SnowflakeIdGenerator
+from app.application.services.order_service import (
+    InventoryServiceClient,
+    OrderApplicationService,
+    SnowflakeIdGenerator,
+)
 from app.core.config import settings
 from app.core.database import get_order_db, get_product_db
 

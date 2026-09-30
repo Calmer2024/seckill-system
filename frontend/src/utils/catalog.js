@@ -25,6 +25,10 @@ export function getQuickFilters() {
   return QUICK_FILTERS;
 }
 
+export function isStoreProduct(product) {
+  return !/^Performance Test Product\b/i.test(product.name || '');
+}
+
 export function decorateProduct(product, index = 0) {
   const safeCategory = product.category || CATEGORY_DEFINITIONS[(index % (CATEGORY_DEFINITIONS.length - 1)) + 1].key;
   const category = CATEGORY_DEFINITIONS.find((item) => item.key === safeCategory);
@@ -39,7 +43,7 @@ export function decorateProduct(product, index = 0) {
     categoryKey: safeCategory,
     categoryLabel: category?.label || '全部商品',
     categoryBadge: category?.label || firstTag,
-    visualIcon: product.visual_icon || 'lucide:package-open',
+    imageUrl: product.image_url || `/product-images/${product.id}.png`,
     highlight: product.highlight || firstTag,
     description: product.summary || '正在整理这件商品的详细介绍。',
     rating: formatRating(product.rating),

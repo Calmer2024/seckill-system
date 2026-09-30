@@ -217,27 +217,27 @@ export default function FlashSaleArena({ session }) {
   return (
     <section className="bg-white pt-28 md:pt-32">
       <div className="dream-shell">
-        <section className="border-b border-[#EEEEEE] pb-16">
-          <div className="grid gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
-            <div className="max-w-[640px]">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-text-muted">Dreamstore Detail</div>
-              <h1 className="mt-6 text-[clamp(3rem,7vw,5.8rem)] font-black leading-[0.9] tracking-[-0.08em] text-primary">
+        <nav aria-label="面包屑导航" className="mb-6 flex items-center gap-2 text-xs text-[#6e6e73]">
+          <Link to="/" className="hover:text-[#0066cc]">商店</Link><Icon icon="lucide:chevron-right" className="h-3 w-3" /><span>{product?.categoryLabel || '商品详情'}</span>
+        </nav>
+        <section className="border-b border-[#e5e5e7] pb-14">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-16">
+            <div className="max-w-[570px]">
+              <div className="text-sm font-semibold text-[#bf4800]">{product?.categoryLabel || '精选商品'}</div>
+              <h1 className="mt-3 text-[clamp(2.7rem,5vw,4.6rem)] font-semibold leading-[1.12] tracking-[-0.055em] text-[#1d1d1f]">
                 {loading ? '正在准备商品信息...' : product?.name || '商品信息加载失败'}
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-8 text-text-muted">
+              <p className="mt-6 max-w-xl text-base leading-8 text-[#6e6e73]">
                 {product?.description || '正在整理这件商品的详细介绍、库存变化和订单进度。'}
               </p>
 
-              <div className="mt-7 flex flex-wrap items-center gap-4 text-sm text-text-muted">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#EAEAEA] bg-white px-4 py-2">
+              <div className="mt-5 flex flex-wrap items-center gap-5 text-sm text-[#6e6e73]">
+                <span className="inline-flex items-center gap-2">
                   <Icon icon="lucide:star" className="h-4 w-4 text-accent-yellow" />
                   <span className="font-semibold text-primary">{product?.rating || '--'}</span>
                   <span>{product?.reviewsLabel || '0 条评价'}</span>
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#EAEAEA] bg-white px-4 py-2">
-                  <Icon icon="lucide:layers-3" className="h-4 w-4 text-primary" />
-                  <span>{product?.categoryLabel || '商品分类'}</span>
-                </span>
+                <span>{product?.highlight || '精选好物'}</span>
               </div>
 
               {product?.tags?.length ? (
@@ -245,7 +245,7 @@ export default function FlashSaleArena({ session }) {
                   {product.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-1.5 text-xs font-semibold tracking-[0.12em] text-text-muted"
+                    className="rounded-full bg-[#f5f5f7] px-3 py-1.5 text-xs text-[#6e6e73]"
                     >
                       {tag}
                     </span>
@@ -253,31 +253,21 @@ export default function FlashSaleArena({ session }) {
                 </div>
               ) : null}
 
-              <div className="mt-10 flex flex-wrap items-end gap-x-12 gap-y-6">
+              <div className="mt-9 border-t border-[#e5e5e7] pt-7">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-text-muted">当前价格</div>
-                  <div className="mt-3 text-6xl font-black tracking-[-0.07em] text-primary">
+                  <div className="text-sm text-[#6e6e73]">秒杀价</div>
+                  <div className="mt-1 text-[clamp(2.4rem,4vw,3.4rem)] font-semibold tracking-[-0.055em] text-[#1d1d1f] tabular-nums">
                     ¥{product ? formatPrice(product.price) : '--'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-text-muted">商品亮点</div>
-                  <div className="mt-3 text-lg font-semibold text-primary">{product?.highlight || '精选好物'}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-text-muted">当前账号</div>
-                  <div className="mt-3 text-lg font-semibold text-primary">
-                    {session.isAuthenticated ? session.username : '尚未登录'}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
                   onClick={handleSeckill}
                   disabled={loading || requesting || paying}
-                  className="dream-button-primary min-w-[180px] py-4 disabled:opacity-60"
+                  className="dream-button-primary min-w-[160px] py-3 disabled:opacity-60"
                 >
                   {requesting ? '正在提交...' : '立即购买'}
                 </button>
@@ -285,89 +275,63 @@ export default function FlashSaleArena({ session }) {
                   type="button"
                   onClick={handlePay}
                   disabled={!order?.order_id || !['CREATED', 'PAYING'].includes(order?.status) || paying}
-                  className="dream-button-secondary min-w-[180px] py-4 disabled:opacity-50"
+                  className="dream-button-secondary min-w-[160px] py-3 disabled:opacity-50"
                 >
                   {paying ? '支付处理中...' : '支付当前订单'}
                 </button>
-                <Link to="/" className="dream-button-secondary py-4">
-                  返回首页
-                </Link>
               </div>
 
-              <p className="mt-8 max-w-2xl text-sm leading-8 text-text-muted">{message}</p>
+              <p role="status" className="mt-5 max-w-2xl text-sm leading-7 text-[#6e6e73]">{message}</p>
             </div>
 
-            <div className="relative min-h-[520px] overflow-hidden rounded-[3rem] border border-[#F1F1F1] bg-white">
-              <div className="absolute inset-x-[10%] top-[12%] h-14 rounded-full bg-[#F5F5F5] blur-3xl" />
-              <div className="absolute right-[10%] top-[18%] h-32 w-32 rounded-full bg-[#F8F8F8] blur-3xl" />
-              <div className="absolute bottom-[12%] left-1/2 h-12 w-[56%] -translate-x-1/2 rounded-full bg-black/6 blur-2xl" />
-
+            <div className="relative aspect-square min-h-[340px] overflow-hidden rounded-[2rem] bg-[#f5f5f7]">
               {product ? (
-                <div className="relative flex h-full min-h-[520px] flex-col justify-between p-8 md:p-10">
-                  <div className="text-right text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    {product.categoryLabel}
-                  </div>
-                  <div className="flex flex-1 items-center justify-center">
-                    <div className="flex h-[250px] w-[250px] items-center justify-center rounded-[34%] border border-[#F0F0F0] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8F8F8_100%)] shadow-[0_40px_90px_-44px_rgba(17,24,39,0.28)] md:h-[300px] md:w-[300px]">
-                      <Icon icon={product.visualIcon || 'lucide:package-open'} className="h-28 w-28 text-primary md:h-32 md:w-32" />
-                    </div>
-                  </div>
-                  <div className="flex items-end justify-between gap-6 border-t border-[#F0F0F0] pt-6">
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">标签</div>
-                      <div className="mt-2 text-base font-semibold text-primary">{product.categoryBadge}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">亮点</div>
-                      <div className="mt-2 text-base font-semibold text-primary">{product.highlight}</div>
-                    </div>
-                  </div>
-                </div>
+                <img src={product.imageUrl} alt={product.name} className="product-detail-image h-full w-full object-cover" />
               ) : (
-                <div className="h-[520px] animate-pulse bg-[#F7F7F7]" />
+                <div className="h-full animate-pulse bg-[#f5f5f7]" />
               )}
             </div>
           </div>
         </section>
 
-        <section className="grid gap-8 border-b border-[#EEEEEE] py-12 md:grid-cols-3 md:gap-0">
+        <section className="grid gap-8 border-b border-[#e5e5e7] py-12 md:grid-cols-3 md:gap-0">
           {stockCards.map((item, index) => (
             <div
               key={item.label}
               className={[
                 'py-2',
-                index > 0 ? 'md:border-l md:border-[#EEEEEE] md:pl-8 lg:pl-10' : 'md:pr-8 lg:pr-10',
+                index > 0 ? 'md:border-l md:border-[#e5e5e7] md:pl-8 lg:pl-10' : 'md:pr-8 lg:pr-10',
               ].join(' ')}
             >
-              <div className="text-xs uppercase tracking-[0.24em] text-text-muted">{item.label}</div>
-              <div className="mt-4 text-5xl font-black tracking-[-0.06em] text-primary">{item.value}</div>
+              <div className="text-sm text-[#6e6e73]">{item.label}</div>
+              <div className="mt-3 text-[2.7rem] font-semibold tracking-[-0.05em] text-[#1d1d1f] tabular-nums">{item.value}</div>
               <div className="mt-3 text-sm leading-7 text-text-muted">{item.note}</div>
             </div>
           ))}
         </section>
 
-        <section className="grid gap-12 border-b border-[#EEEEEE] py-16 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="grid gap-12 border-b border-[#e5e5e7] py-16 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-muted">Order Progress</div>
-            <div className="mt-5 text-[clamp(2.2rem,5vw,4.2rem)] font-black leading-[0.96] tracking-[-0.06em] text-primary">
+            <div className="text-sm font-semibold text-[#bf4800]">订单进度</div>
+            <div className="mt-4 text-[clamp(2.2rem,5vw,3.5rem)] font-semibold leading-[1.15] tracking-[-0.05em] text-[#1d1d1f]">
               {order ? statusTextMap[order.status] || order.status : '等待创建订单'}
             </div>
             <p className="mt-6 max-w-xl text-base leading-8 text-text-muted">{message}</p>
           </div>
 
-          <div className="border-y border-[#EEEEEE]">
+          <div className="border-y border-[#e5e5e7]">
             {order ? (
               <>
-                <div className="grid gap-3 border-b border-[#EEEEEE] py-6 md:grid-cols-[120px_1fr]">
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">订单号</div>
+                <div className="grid gap-3 border-b border-[#e5e5e7] py-6 md:grid-cols-[120px_1fr]">
+                  <div className="text-sm text-[#6e6e73]">订单号</div>
                   <div className="break-all text-base font-semibold text-primary">{order.order_id}</div>
                 </div>
-                <div className="grid gap-3 border-b border-[#EEEEEE] py-6 md:grid-cols-[120px_1fr]">
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">订单状态</div>
+                <div className="grid gap-3 border-b border-[#e5e5e7] py-6 md:grid-cols-[120px_1fr]">
+                  <div className="text-sm text-[#6e6e73]">订单状态</div>
                   <div className="text-base font-semibold text-primary">{statusTextMap[order.status] || order.status}</div>
                 </div>
                 <div className="grid gap-3 py-6 md:grid-cols-[120px_1fr]">
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">订单金额</div>
+                  <div className="text-sm text-[#6e6e73]">订单金额</div>
                   <div className="text-base font-semibold text-primary">¥{formatPrice(order.total_amount)}</div>
                 </div>
               </>
@@ -384,12 +348,12 @@ export default function FlashSaleArena({ session }) {
             <article
               key={item.title}
               className={[
-                'border-t border-[#EEEEEE] pt-8',
+                'border-t border-[#e5e5e7] pt-8',
                 index % 2 === 1 ? 'lg:pl-10' : '',
               ].join(' ')}
             >
-              <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-text-muted">Design Note</div>
-              <div className="mt-4 text-[1.9rem] font-black tracking-[-0.05em] text-primary">{item.title}</div>
+              <div className="text-sm font-semibold text-[#bf4800]">了解更多</div>
+              <div className="mt-4 text-[1.9rem] font-semibold tracking-[-0.05em] text-[#1d1d1f]">{item.title}</div>
               <p className="mt-5 max-w-xl text-sm leading-8 text-text-muted">{item.description}</p>
             </article>
           ))}

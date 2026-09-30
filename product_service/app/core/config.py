@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     READ_DATABASE_URL: str | None = None
     WRITE_DATABASE_ROLE_NAME: str = "primary"
     READ_DATABASE_ROLE_NAME: str = "replica"
+    ENABLE_READ_REPLICA: bool = True
     ENABLE_READ_REPLICA_FALLBACK: bool = True
+
+    ENABLE_PRODUCT_CACHE: bool = True
 
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 40
@@ -43,11 +46,17 @@ class Settings(BaseSettings):
 
     @property
     def effective_read_database_url(self) -> str:
+        if not self.ENABLE_READ_REPLICA:
+            return self.DATABASE_URL
         return self.READ_DATABASE_URL or self.DATABASE_URL
 
     @property
     def read_replica_enabled(self) -> bool:
-        return bool(self.READ_DATABASE_URL and self.READ_DATABASE_URL != self.DATABASE_URL)
+        return bool(
+            self.ENABLE_READ_REPLICA
+            and self.READ_DATABASE_URL
+            and self.READ_DATABASE_URL != self.DATABASE_URL
+        )
 
 
 settings = Settings()

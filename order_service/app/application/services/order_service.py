@@ -25,6 +25,7 @@ from app.core.config import settings
 from app.core.exceptions.business_exception import BusinessException
 from app.core.security import CurrentUser
 from app.infrastructure.logging.logger import get_logger
+from app.observability.metrics import SECKILL_REQUESTS_TOTAL
 from app.models.order import Order, OrderOutboxEvent, PaymentRecord, UserPurchaseRecord
 from app.models.product import Product
 
@@ -106,7 +107,12 @@ class OrderRepository:
         )
         return self.session.execute(statement).scalar_one_or_none()
 
-    def create_pending_order_and_outbox(self, event: OrderCreatedEvent) -> None:
+    def create_pending_order_and_outbox(
+        self,
+        event: OrderCreatedEvent,
+        async_mode: bool = True,
+        outbox_enabled: bool = True,
+    ) -> None:
         order = Order(
             order_id=event.order_id,
             user_id=event.user_id,
@@ -114,18 +120,28 @@ class OrderRepository:
             quantity=event.quantity,
             unit_price=event.unit_price,
             total_amount=event.total_amount,
-            status="PENDING_INVENTORY",
-        )
-        outbox = OrderOutboxEvent(
-            aggregate_id=event.order_id,
-            user_id=event.user_id,
-            topic=settings.KAFKA_ORDER_CREATED_TOPIC,
-            event_type="ORDER_CREATED",
-            payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
-            status="NEW",
+            status="PENDING_INVENTORY" if async_mode else "CREATED",
         )
         self.session.add(order)
-        self.session.add(outbox)
+        if async_mode and outbox_enabled:
+            self.session.add(
+                OrderOutboxEvent(
+                    aggregate_id=event.order_id,
+                    user_id=event.user_id,
+                    topic=settings.KAFKA_ORDER_CREATED_TOPIC,
+                    event_type="ORDER_CREATED",
+                    payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    status="NEW",
+                )
+            )
+        if not async_mode:
+            self.session.add(
+                UserPurchaseRecord(
+                    user_id=event.user_id,
+                    product_id=event.product_id,
+                    order_id=event.order_id,
+                )
+            )
         self.session.commit()
 
     def request_payment(self, order: Order, amount: Decimal) -> tuple[str, str]:
@@ -316,14 +332,22 @@ class InventoryServiceClient:
             timeout=settings.INVENTORY_SERVICE_TIMEOUT_SECONDS,
         )
 
-    def reserve(self, order_id: int, user_id: int, product_id: int, quantity: int) -> None:
-        self._post(
+    def reserve(
+        self,
+        order_id: int,
+        user_id: int,
+        product_id: int,
+        quantity: int,
+        confirm_immediately: bool = False,
+    ) -> dict:
+        return self._post(
             "/internal/inventory/reservations",
             {
                 "order_id": order_id,
                 "user_id": user_id,
                 "product_id": product_id,
                 "quantity": quantity,
+                "confirm_immediately": confirm_immediately,
             },
         )
 
@@ -360,11 +384,13 @@ class OrderApplicationService:
         product_db: Session,
         inventory_client: InventoryServiceClient,
         id_generator: SnowflakeIdGenerator,
+        direct_producer=None,
     ) -> None:
         self.order_repository = OrderRepository(order_db)
         self.product_repository = ProductRepository(product_db)
         self.inventory_client = inventory_client
         self.id_generator = id_generator
+        self.direct_producer = direct_producer
 
     def submit_seckill_order(
         self,
@@ -376,21 +402,26 @@ class OrderApplicationService:
             product_id=request.product_id,
         )
         if existing_order:
+            SECKILL_REQUESTS_TOTAL.labels("duplicate").inc()
             raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409)
 
         product = self.product_repository.get_product(request.product_id)
         if product is None:
+            SECKILL_REQUESTS_TOTAL.labels("product_not_found").inc()
             raise BusinessException("PRODUCT_NOT_FOUND", "秒杀商品不存在", 404)
 
         order_id = self.id_generator.next_id()
+        async_mode = settings.ENABLE_KAFKA_ASYNC
         try:
-            self.inventory_client.reserve(
+            reservation = self.inventory_client.reserve(
                 order_id=order_id,
                 user_id=current_user.user_id,
                 product_id=request.product_id,
                 quantity=request.quantity,
+                confirm_immediately=not async_mode,
             )
         except InventoryServiceError as exc:
+            SECKILL_REQUESTS_TOTAL.labels(exc.code.lower()).inc()
             raise BusinessException(exc.code, exc.message, exc.status_code) from exc
 
         event = OrderCreatedEvent(
@@ -403,9 +434,14 @@ class OrderApplicationService:
         )
 
         try:
-            self.order_repository.create_pending_order_and_outbox(event)
+            self.order_repository.create_pending_order_and_outbox(
+                event,
+                async_mode=async_mode,
+                outbox_enabled=settings.ENABLE_ORDER_OUTBOX,
+            )
         except IntegrityError as exc:
             self.order_repository.session.rollback()
+            SECKILL_REQUESTS_TOTAL.labels("duplicate").inc()
             try:
                 self.inventory_client.cancel(order_id)
             except InventoryServiceError:
@@ -425,6 +461,12 @@ class OrderApplicationService:
                 )
             raise
 
+        if async_mode and not settings.ENABLE_ORDER_OUTBOX:
+            producer = self.direct_producer or KafkaEventProducer()
+            producer.send(settings.KAFKA_ORDER_CREATED_TOPIC, event.model_dump(mode="json"))
+
+        SECKILL_REQUESTS_TOTAL.labels("accepted").inc()
+
         logger.info(
             "seckill order accepted",
             extra={
@@ -437,8 +479,12 @@ class OrderApplicationService:
         )
         return SeckillOrderAcceptedResponse(
             order_id=order_id,
-            status="PENDING_INVENTORY",
-            message="订单已创建并预扣库存，等待库存服务异步确认",
+            status="PENDING_INVENTORY" if async_mode else "CREATED",
+            message=(
+                "订单已创建并预扣库存，等待库存服务异步确认"
+                if async_mode
+                else "订单已创建并同步确认库存"
+            ),
         )
 
     def pay_order(

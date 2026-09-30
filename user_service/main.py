@@ -1,19 +1,27 @@
 import os
+import re
+from io import BytesIO
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Annotated
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.orm import Session
 import bcrypt
 from jose import jwt, JWTError
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST
 
 # 导入我们刚才写的模块
 import models
 import schemas
 from database import engine, get_db
+from observability.metrics import metrics_payload, record_http_request
 
 # ================= 数据库轻量迁移 =================
 def ensure_user_schema():
@@ -22,13 +30,10 @@ def ensure_user_schema():
         columns = {column["name"] for column in inspector.get_columns("users")}
     except NoSuchTableError:
         return
-    if "avatar_url" in columns:
-        return
-
     with engine.begin() as connection:
-        connection.execute(
-            text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1024) NOT NULL DEFAULT '/avatar.JPG'")
-        )
+        if "avatar_url" not in columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1024) NOT NULL DEFAULT ''"))
+        connection.execute(text("UPDATE users SET avatar_url = '' WHERE avatar_url = '/avatar.JPG'"))
 
 
 # 1. 自动在 MySQL 中创建表 (生产环境通常用 Alembic 迁移，作业里这样写最快)
@@ -37,6 +42,10 @@ ensure_user_schema()
 
 # 2. 初始化 FastAPI 应用
 app = FastAPI(title="用户服务 (User Service)", version="1.0.0")
+AVATAR_UPLOAD_DIR = Path(os.getenv("AVATAR_UPLOAD_DIR", Path(__file__).resolve().parent / "uploads"))
+AVATAR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+Image.MAX_IMAGE_PIXELS = 20_000_000
 
 # 4. JWT 配置 (从环境变量读取)
 SECRET_KEY = (
@@ -116,6 +125,31 @@ app.add_middleware(
     allow_methods=["*"], # 允许所有的 HTTP 方法 (GET, POST 等)
     allow_headers=["*"], # 允许所有的请求头
 )
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(content=metrics_payload(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.middleware("http")
+async def request_metrics_middleware(request: Request, call_next):
+    import time
+
+    start_time = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        route = request.scope.get("route")
+        metric_path = getattr(route, "path", request.url.path)
+        if metric_path != "/metrics":
+            record_http_request(request.method, metric_path, 500, time.perf_counter() - start_time)
+        raise
+    route = request.scope.get("route")
+    metric_path = getattr(route, "path", request.url.path)
+    if metric_path != "/metrics":
+        record_http_request(request.method, metric_path, response.status_code, time.perf_counter() - start_time)
+    return response
 # =========================================================
 
 # ================= API 路由接口 =================
@@ -130,7 +164,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
     # 2. 密码加密存储
     hashed_password = get_password_hash(user.password)
-    new_user = models.User(username=user.username, password_hash=hashed_password, avatar_url="/avatar.JPG")
+    new_user = models.User(username=user.username, password_hash=hashed_password, avatar_url="")
 
     # 3. 写入数据库
     db.add(new_user)
@@ -162,6 +196,49 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.get("/api/users/profile", response_model=schemas.UserResponse)
 def get_profile(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
+@app.get("/api/users/avatars/{filename}", include_in_schema=False)
+def get_avatar(filename: str):
+    if not re.fullmatch(r"[0-9a-f]{32}\.webp", filename):
+        raise HTTPException(status_code=404, detail="头像不存在")
+    destination = AVATAR_UPLOAD_DIR / filename
+    if not destination.is_file():
+        raise HTTPException(status_code=404, detail="头像不存在")
+    return FileResponse(destination, media_type="image/webp")
+
+
+@app.post("/api/users/profile/avatar", response_model=schemas.UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=400, detail="请选择 JPG、PNG 或 WebP 图片")
+
+    content = await file.read(MAX_AVATAR_BYTES + 1)
+    await file.close()
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=400, detail="头像图片不能超过 2 MB")
+
+    try:
+        with Image.open(BytesIO(content)) as source:
+            if source.format not in {"JPEG", "PNG", "WEBP"} or source.width * source.height > 20_000_000:
+                raise ValueError("不支持的图片格式或尺寸")
+            image = ImageOps.exif_transpose(source).convert("RGB")
+            image.thumbnail((512, 512))
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(status_code=400, detail="图片无法读取，请选择有效的 JPG、PNG 或 WebP 文件")
+
+    filename = f"{uuid4().hex}.webp"
+    destination = AVATAR_UPLOAD_DIR / filename
+    image.save(destination, format="WEBP", quality=85)
+    current_user.avatar_url = f"/api/users/avatars/{filename}"
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 

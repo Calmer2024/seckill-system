@@ -123,6 +123,9 @@ services:
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       SECRET_KEY: fallback_secret_key_for_dev
       JWT_SECRET_KEY: fallback_secret_key_for_dev
+      AVATAR_UPLOAD_DIR: /app/uploads
+    volumes:
+      - avatar_uploads:/app/uploads
     depends_on:
       mysql-primary:
         condition: service_healthy
@@ -134,6 +137,8 @@ services:
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
       REDIS_HOST: redis
+      ENABLE_PRODUCT_CACHE: "true"
+      ENABLE_READ_REPLICA: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -149,6 +154,8 @@ services:
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
       REDIS_HOST: redis
+      ENABLE_PRODUCT_CACHE: "true"
+      ENABLE_READ_REPLICA: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -167,6 +174,8 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET_KEY: fallback_secret_key_for_dev
+      ENABLE_KAFKA_ASYNC: "true"
+      ENABLE_ORDER_OUTBOX: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -188,6 +197,8 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET_KEY: fallback_secret_key_for_dev
+      ENABLE_KAFKA_ASYNC: "true"
+      ENABLE_ORDER_OUTBOX: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -207,6 +218,8 @@ services:
       INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ENABLE_REDIS_STOCK_RESERVATION: "true"
+      ENABLE_INVENTORY_OUTBOX: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -223,6 +236,8 @@ services:
       INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ENABLE_REDIS_STOCK_RESERVATION: "true"
+      ENABLE_INVENTORY_OUTBOX: "true"
     depends_on:
       redis:
         condition: service_healthy
@@ -243,3 +258,139 @@ services:
       - product_service_1
       - product_service_2
       - order_service
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: seckill_prometheus
+    profiles: ["monitoring"]
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./performance/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./performance/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=24h
+      - --web.enable-lifecycle
+    depends_on:
+      - redis_exporter
+      - mysqld_exporter
+      - mysqld_replica_exporter
+      - kafka_exporter
+      - cadvisor
+      - business_exporter
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: seckill_grafana
+    profiles: ["monitoring"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./performance/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./performance/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: seckill_redis_exporter
+    profiles: ["monitoring"]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  mysqld_exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: seckill_mysqld_exporter
+    profiles: ["monitoring"]
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: "418124"
+    command:
+      - --mysqld.address=mysql-primary:3306
+      - --mysqld.username=root
+    depends_on:
+      mysql-primary:
+        condition: service_healthy
+
+  mysqld_replica_exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: seckill_mysqld_replica_exporter
+    profiles: ["monitoring"]
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: "418124"
+    command:
+      - --mysqld.address=mysql-replica:3306
+      - --mysqld.username=root
+    depends_on:
+      mysql-replica:
+        condition: service_healthy
+
+  kafka_exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: seckill_kafka_exporter
+    profiles: ["monitoring"]
+    command:
+      - --kafka.server=kafka:9092
+      - --web.listen-address=:9308
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: seckill_cadvisor
+    profiles: ["monitoring"]
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+
+  business_exporter:
+    build: ./performance/monitoring/business-exporter
+    container_name: seckill_business_exporter
+    profiles: ["monitoring"]
+    environment:
+      PERF_PRODUCT_ID: "${PERF_PRODUCT_ID:-900001}"
+      PERF_USER_ID_START: "${PERF_USER_ID_START:-9000001}"
+      PERF_USER_COUNT: "${PERF_USER_COUNT:-10000}"
+      PERF_INITIAL_STOCK: "${PERF_INITIAL_STOCK:-100}"
+      PERF_REDIS_RESERVATION_ENABLED: "${PERF_REDIS_RESERVATION_ENABLED:-true}"
+      MYSQL_HOST: mysql-primary
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: 418124
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      mysql-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  k6:
+    image: grafana/k6:0.54.0
+    container_name: seckill_k6
+    profiles: ["loadgen"]
+    working_dir: /scripts
+    entrypoint: ["k6"]
+    volumes:
+      - ./performance:/scripts:ro
+      - ./performance/reports/runs:/reports
+
+volumes:
+  avatar_uploads:
+  prometheus_data:
+  grafana_data:

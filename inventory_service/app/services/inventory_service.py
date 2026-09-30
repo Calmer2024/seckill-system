@@ -8,12 +8,13 @@ import redis
 from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer
 from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.exceptions.business_exception import BusinessException
 from app.infrastructure.logging.logger import get_logger
+from app.observability.metrics import INVENTORY_RESERVATIONS_TOTAL
 from app.models.inventory import InventoryItem, InventoryOutboxEvent, InventoryReservation
 from app.schemas.inventory import InventoryReservationRequest, InventoryReservationResponse, InventoryResultEvent
 
@@ -187,9 +188,21 @@ class InventoryRepository:
             self.session.rollback()
             raise BusinessException("OUT_OF_STOCK", "商品已售罄", 409)
 
-        item.available_stock -= quantity
-        item.reserved_stock += quantity
-        item.version += 1
+        updated = self.session.execute(
+            update(InventoryItem)
+            .where(
+                InventoryItem.product_id == product_id,
+                InventoryItem.available_stock >= quantity,
+            )
+            .values(
+                available_stock=InventoryItem.available_stock - quantity,
+                reserved_stock=InventoryItem.reserved_stock + quantity,
+                version=InventoryItem.version + 1,
+            )
+        )
+        if updated.rowcount != 1:
+            self.session.rollback()
+            raise BusinessException("OUT_OF_STOCK", "商品已售罄", 409)
         self.session.add(
             InventoryReservation(
                 order_id=order_id,
@@ -238,7 +251,11 @@ class InventoryRepository:
             failure_reason=reservation.failure_reason,
         )
 
-    def confirm_reservation_and_enqueue_result(self, payload: InventoryResultEvent) -> ReservationSnapshot:
+    def confirm_reservation_and_enqueue_result(
+        self,
+        payload: InventoryResultEvent,
+        enqueue_result: bool = True,
+    ) -> ReservationSnapshot:
         reservation = self.get_reservation(payload.order_id)
         if reservation is None:
             return self._enqueue_result(
@@ -249,7 +266,8 @@ class InventoryRepository:
                     quantity=payload.quantity,
                     status="FAILED",
                     failure_reason="RESERVATION_NOT_FOUND",
-                )
+                ),
+                enqueue_result=enqueue_result,
             )
 
         if reservation.status == "CONFIRMED":
@@ -272,7 +290,8 @@ class InventoryRepository:
                     quantity=reservation.quantity,
                     status="FAILED",
                     failure_reason=reservation.failure_reason or reservation.status,
-                )
+                ),
+                enqueue_result=enqueue_result,
             )
 
         item = self.get_item(reservation.product_id)
@@ -292,15 +311,16 @@ class InventoryRepository:
             quantity=reservation.quantity,
             status="CONFIRMED",
         )
-        self.session.add(
-            InventoryOutboxEvent(
-                aggregate_id=reservation.order_id,
-                topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
-                event_type="INVENTORY_CONFIRMED",
-                payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
-                status="NEW",
+        if enqueue_result and settings.ENABLE_INVENTORY_OUTBOX:
+            self.session.add(
+                InventoryOutboxEvent(
+                    aggregate_id=reservation.order_id,
+                    topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
+                    event_type="INVENTORY_CONFIRMED",
+                    payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    status="NEW",
+                )
             )
-        )
         self.session.commit()
         return ReservationSnapshot(
             order_id=reservation.order_id,
@@ -310,16 +330,17 @@ class InventoryRepository:
             status="CONFIRMED",
         )
 
-    def _enqueue_result(self, event: InventoryResultEvent) -> ReservationSnapshot:
-        self.session.add(
-            InventoryOutboxEvent(
-                aggregate_id=event.order_id,
-                topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
-                event_type="INVENTORY_RESERVATION_FAILED",
-                payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
-                status="NEW",
+    def _enqueue_result(self, event: InventoryResultEvent, enqueue_result: bool = True) -> ReservationSnapshot:
+        if enqueue_result and settings.ENABLE_INVENTORY_OUTBOX:
+            self.session.add(
+                InventoryOutboxEvent(
+                    aggregate_id=event.order_id,
+                    topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
+                    event_type="INVENTORY_RESERVATION_FAILED",
+                    payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    status="NEW",
+                )
             )
-        )
         self.session.commit()
         return ReservationSnapshot(
             order_id=event.order_id,
@@ -382,20 +403,21 @@ class InventoryApplicationService:
         item = self.repository.get_item(request.product_id)
         if item is None:
             raise BusinessException("PRODUCT_NOT_FOUND", "库存商品不存在", 404)
-        self.stock_cache.ensure_stock_loaded(item)
+        if settings.ENABLE_REDIS_STOCK_RESERVATION:
+            self.stock_cache.ensure_stock_loaded(item)
 
-        reserve_result = self.stock_cache.reserve_stock(
-            user_id=request.user_id,
-            product_id=request.product_id,
-            order_id=request.order_id,
-            quantity=request.quantity,
-        )
-        if reserve_result == 2:
-            raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409)
-        if reserve_result == 0:
-            raise BusinessException("OUT_OF_STOCK", "商品已售罄", 409)
-        if reserve_result == -1:
-            raise BusinessException("STOCK_NOT_READY", "库存缓存尚未就绪，请稍后重试", 503)
+            reserve_result = self.stock_cache.reserve_stock(
+                user_id=request.user_id,
+                product_id=request.product_id,
+                order_id=request.order_id,
+                quantity=request.quantity,
+            )
+            if reserve_result == 2:
+                raise BusinessException("DUPLICATE_ORDER", "同一用户同一商品只能秒杀一次", 409)
+            if reserve_result == 0:
+                raise BusinessException("OUT_OF_STOCK", "商品已售罄", 409)
+            if reserve_result == -1:
+                raise BusinessException("STOCK_NOT_READY", "库存缓存尚未就绪，请稍后重试", 503)
 
         try:
             snapshot = self.repository.create_reservation(
@@ -406,13 +428,32 @@ class InventoryApplicationService:
             )
         except Exception:
             self.repository.session.rollback()
-            self.stock_cache.release_stock(
-                user_id=request.user_id,
-                product_id=request.product_id,
-                order_id=request.order_id,
-                quantity=request.quantity,
-            )
+            if settings.ENABLE_REDIS_STOCK_RESERVATION:
+                self.stock_cache.release_stock(
+                    user_id=request.user_id,
+                    product_id=request.product_id,
+                    order_id=request.order_id,
+                    quantity=request.quantity,
+                )
             raise
+
+        if request.confirm_immediately and snapshot.status == "RESERVED":
+            snapshot = self.repository.confirm_reservation_and_enqueue_result(
+                InventoryResultEvent(
+                    order_id=snapshot.order_id,
+                    user_id=snapshot.user_id,
+                    product_id=snapshot.product_id,
+                    quantity=snapshot.quantity,
+                    status="RESERVED",
+                ),
+                enqueue_result=False,
+            )
+            if settings.ENABLE_REDIS_STOCK_RESERVATION and snapshot.status == "CONFIRMED":
+                self.stock_cache.mark_confirmed(
+                    user_id=snapshot.user_id,
+                    product_id=snapshot.product_id,
+                    order_id=snapshot.order_id,
+                )
 
         logger.info(
             "inventory reserved",
@@ -424,6 +465,10 @@ class InventoryApplicationService:
                 "outcome": snapshot.status,
             },
         )
+        INVENTORY_RESERVATIONS_TOTAL.labels(
+            snapshot.status.lower(),
+            "redis_lua" if settings.ENABLE_REDIS_STOCK_RESERVATION else "database",
+        ).inc()
         return InventoryReservationResponse(
             order_id=request.order_id,
             status=snapshot.status,
@@ -517,6 +562,7 @@ class OrderCreatedConsumer:
     def __init__(self, inventory_session_factory, redis_client: redis.Redis) -> None:
         self.inventory_session_factory = inventory_session_factory
         self.stock_cache = StockCacheService(redis_client)
+        self.direct_producer = KafkaEventProducer()
         self.consumer = KafkaConsumer(
             settings.KAFKA_ORDER_CREATED_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
@@ -539,11 +585,23 @@ class OrderCreatedConsumer:
             session = self.inventory_session_factory()
             try:
                 snapshot = InventoryRepository(session).confirm_reservation_and_enqueue_result(payload)
-                if snapshot.status == "CONFIRMED":
+                if settings.ENABLE_REDIS_STOCK_RESERVATION and snapshot.status == "CONFIRMED":
                     self.stock_cache.mark_confirmed(
                         user_id=snapshot.user_id,
                         product_id=snapshot.product_id,
                         order_id=snapshot.order_id,
+                    )
+                if not settings.ENABLE_INVENTORY_OUTBOX:
+                    self.direct_producer.send(
+                        settings.KAFKA_INVENTORY_RESULT_TOPIC,
+                        InventoryResultEvent(
+                            order_id=snapshot.order_id,
+                            user_id=snapshot.user_id,
+                            product_id=snapshot.product_id,
+                            quantity=snapshot.quantity,
+                            status=snapshot.status,
+                            failure_reason=snapshot.failure_reason,
+                        ).model_dump(mode="json"),
                     )
                 self.consumer.commit()
             finally:

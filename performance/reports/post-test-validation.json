@@ -1,0 +1,119 @@
+{
+  "generated_at": "2026-09-30T10:14:43.284834+00:00",
+  "product_id": 900001,
+  "initial_stock": 100,
+  "user_id_range": {
+    "start": 9000001,
+    "end": 9001000
+  },
+  "inventory": {
+    "available_stock": 100,
+    "reserved_stock": 0,
+    "sold_stock": 0,
+    "reservation_total": 0,
+    "confirmed_reservations": 0,
+    "reserved_reservations": 0,
+    "canceled_reservations": 0,
+    "reserved_quantity": 0
+  },
+  "orders": {
+    "total_orders": 0,
+    "valid_orders": 0,
+    "failed_orders": 0,
+    "order_quantity": 0,
+    "duplicate_groups": 0,
+    "purchase_records": 0
+  },
+  "outbox": {
+    "order_pending": 0,
+    "order_total": 0,
+    "inventory_pending": 0,
+    "inventory_total": 0
+  },
+  "redis": {
+    "stock": null
+  },
+  "checks": [
+    {
+      "name": "stock_non_negative",
+      "passed": true,
+      "actual": {
+        "available": 100,
+        "reserved": 0,
+        "sold": 0
+      },
+      "expected": "all values >= 0",
+      "details": ""
+    },
+    {
+      "name": "stock_conservation",
+      "passed": true,
+      "actual": 100,
+      "expected": 100,
+      "details": "initial stock = available + reserved + sold"
+    },
+    {
+      "name": "successful_order_matches_sold_stock",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "valid orders must match confirmed sold quantity"
+    },
+    {
+      "name": "confirmed_reservation_matches_successful_order",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "confirmed reservations must match valid orders"
+    },
+    {
+      "name": "no_duplicate_active_orders",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "one active order per user and product"
+    },
+    {
+      "name": "purchase_record_matches_successful_order",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "purchase idempotency records must match valid orders"
+    },
+    {
+      "name": "no_unconfirmed_reservations",
+      "passed": true,
+      "actual": {
+        "reserved_reservations": 0,
+        "reserved_stock": 0
+      },
+      "expected": {
+        "reserved_reservations": 0,
+        "reserved_stock": 0
+      },
+      "details": "final state should converge after workers recover"
+    },
+    {
+      "name": "order_outbox_drained",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "NEW and RETRY order outbox events"
+    },
+    {
+      "name": "inventory_outbox_drained",
+      "passed": true,
+      "actual": 0,
+      "expected": 0,
+      "details": "NEW and RETRY inventory outbox events"
+    },
+    {
+      "name": "redis_stock_non_negative",
+      "passed": true,
+      "actual": null,
+      "expected": "null or >= 0",
+      "details": "null is expected when Redis stock reservation is disabled"
+    }
+  ],
+  "passed": true
+}

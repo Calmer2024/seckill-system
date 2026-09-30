@@ -1,0 +1,25 @@
+services:
+  product_service_1:
+    environment:
+      ENABLE_PRODUCT_CACHE: "false"
+      ENABLE_READ_REPLICA: "false"
+  product_service_2:
+    environment:
+      ENABLE_PRODUCT_CACHE: "false"
+      ENABLE_READ_REPLICA: "false"
+  order_service:
+    environment:
+      ENABLE_KAFKA_ASYNC: "false"
+      ENABLE_ORDER_OUTBOX: "false"
+  order_worker:
+    environment:
+      ENABLE_KAFKA_ASYNC: "false"
+      ENABLE_ORDER_OUTBOX: "false"
+  inventory_service:
+    environment:
+      ENABLE_REDIS_STOCK_RESERVATION: "false"
+      ENABLE_INVENTORY_OUTBOX: "false"
+  inventory_worker:
+    environment:
+      ENABLE_REDIS_STOCK_RESERVATION: "false"
+      ENABLE_INVENTORY_OUTBOX: "false"
