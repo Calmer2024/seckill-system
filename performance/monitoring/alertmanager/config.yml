@@ -1,0 +1,18 @@
+global:
+  resolve_timeout: 1m
+route:
+  receiver: workbench
+  group_by: [environment, service, alertname]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+receivers:
+  - name: workbench
+    webhook_configs:
+      - url: http://alert-receiver:9122/webhook
+        send_resolved: true
+        max_alerts: 100
+inhibit_rules:
+  - source_matchers: ['alertname="WorkerTargetDown"']
+    target_matchers: ['alertname=~"WorkerTaskDown|WorkerLoopStalled"']
+    equal: [environment, instance]

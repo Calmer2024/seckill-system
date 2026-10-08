@@ -1,0 +1,70 @@
+{
+  "probe": {
+    "request_id": "c25ee8889d49727948f426110aacd001",
+    "trace_id": "b7ce7f4faff1979a71e0c5e97dab4cf6",
+    "response_status": 200
+  },
+  "logs": {
+    "scope": "environment_live",
+    "environment": "local",
+    "sampled_at": 1791011625,
+    "window_minutes": 15,
+    "limit": 200,
+    "logs": [
+      {
+        "timestamp_ns": "1791011359778403948",
+        "service": "product",
+        "instance": "seckill_product_1",
+        "fields": {
+          "timestamp": "2026-10-03T07:09:19.778069+00:00",
+          "level": "INFO",
+          "logger": "app.main",
+          "message": "request completed",
+          "event": "http_access",
+          "request_id": "c25ee8889d49727948f426110aacd001",
+          "trace_id": "b7ce7f4faff1979a71e0c5e97dab4cf6",
+          "span_id": "4cc65c7c62de5726",
+          "route_template": "/api/products",
+          "method": "GET",
+          "status_code": "200"
+        }
+      },
+      {
+        "timestamp_ns": "1791011359777188661",
+        "service": "gateway",
+        "instance": "seckill_nginx",
+        "fields": {
+          "timestamp": "2026-10-03T07:09:19+00:00",
+          "level": "INFO",
+          "event": "http_access",
+          "request_id": "c25ee8889d49727948f426110aacd001",
+          "trace_id": "b7ce7f4faff1979a71e0c5e97dab4cf6",
+          "route_template": "/api/products/*",
+          "method": "GET",
+          "status_code": "200",
+          "duration_seconds": "0.021",
+          "upstream": "172.19.0.11:8000",
+          "upstream_status": "200",
+          "upstream_seconds": "0.021"
+        }
+      },
+      {
+        "timestamp_ns": "1791011359775428650",
+        "service": "product",
+        "instance": "seckill_product_1",
+        "fields": {
+          "timestamp": "2026-10-03T07:09:19.774510+00:00",
+          "level": "INFO",
+          "logger": "app.application.services.product_query_service_impl",
+          "message": "product list loaded from database",
+          "event": "product_list_db_read",
+          "request_id": "c25ee8889d49727948f426110aacd001",
+          "trace_id": "b7ce7f4faff1979a71e0c5e97dab4cf6",
+          "span_id": "4cc65c7c62de5726"
+        }
+      }
+    ],
+    "truncated": false
+  },
+  "query_string_absent_in_raw_loki": true
+}

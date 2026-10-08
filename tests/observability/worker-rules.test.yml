@@ -1,0 +1,59 @@
+rule_files:
+  - ../../performance/monitoring/prometheus/rules/worker.yml
+evaluation_interval: 5s
+tests:
+  - interval: 5s
+    input_series:
+      - series: 'up{job="order_worker",instance="order_worker:9106"}'
+        values: '1+0x40'
+      - series: 'worker_task_alive{job="order_worker",instance="order_worker:9106",role="publish"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 20s
+        alertname: WorkerTaskDown
+        exp_alerts:
+          - exp_labels:
+              job: order_worker
+              instance: order_worker:9106
+              role: publish
+              severity: critical
+            exp_annotations:
+              summary: "Worker thread is not running: publish"
+              runbook: docs/observability/p0.md
+  - interval: 5s
+    input_series:
+      - series: 'up{job="order_worker",instance="order_worker:9106"}'
+        values: '1+0x40'
+      - series: 'worker_task_alive{job="order_worker",instance="order_worker:9106",role="consume"}'
+        values: '1+0x40'
+      - series: 'worker_loop_last_poll_timestamp_seconds{job="order_worker",instance="order_worker:9106",role="consume"}'
+        values: '0+5x40'
+      - series: 'worker_loop_last_progress_timestamp_seconds{job="order_worker",instance="order_worker:9106",role="consume"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 150s
+        alertname: WorkerLoopStalled
+        exp_alerts: []
+      - eval_time: 150s
+        alertname: WorkerTaskDown
+        exp_alerts: []
+  - interval: 5s
+    input_series:
+      - series: 'up{job="inventory_worker",instance="inventory_worker:9106"}'
+        values: '0+0x40'
+      - series: 'worker_task_alive{job="inventory_worker",instance="inventory_worker:9106",role="publish"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 40s
+        alertname: WorkerTaskDown
+        exp_alerts: []
+      - eval_time: 40s
+        alertname: WorkerTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: inventory_worker
+              instance: inventory_worker:9106
+              severity: critical
+            exp_annotations:
+              summary: "Worker metrics endpoint is unavailable: inventory_worker"
+              runbook: docs/observability/p0.md

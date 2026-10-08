@@ -1,0 +1,153 @@
+{
+  "http": {
+    "trace_id": "64d4f18686f61ecd43ef8cd858d99807",
+    "spans": [
+      {
+        "span_id": "fd0b81386589cfc2",
+        "parent_span_id": "",
+        "service": "order-api",
+        "name": "POST /api/orders/seckill",
+        "start_time_ns": "1791005816120260612",
+        "duration_ms": 20.666945,
+        "status": "ok",
+        "attributes": {
+          "http.method": "POST",
+          "http.route": "/api/orders/seckill",
+          "http.status_code": "404"
+        }
+      },
+      {
+        "span_id": "1e45a86624a02be7",
+        "parent_span_id": "fd0b81386589cfc2",
+        "service": "order-api",
+        "name": "order.submit",
+        "start_time_ns": "1791005816128578074",
+        "duration_ms": 11.773614,
+        "status": "ok",
+        "attributes": {
+          "seckill.outcome": "rejected",
+          "seckill.error_code": "PRODUCT_NOT_FOUND"
+        }
+      },
+      {
+        "span_id": "8e6db81ad9f52dd1",
+        "parent_span_id": "1e45a86624a02be7",
+        "service": "order-api",
+        "name": "POST",
+        "start_time_ns": "1791005816129069598",
+        "duration_ms": 10.959525,
+        "status": "error",
+        "attributes": {
+          "http.method": "POST",
+          "http.status_code": "404"
+        }
+      },
+      {
+        "span_id": "79ca09429de47020",
+        "parent_span_id": "8e6db81ad9f52dd1",
+        "service": "inventory-api",
+        "name": "POST /internal/inventory/reservations",
+        "start_time_ns": "1791005816130631912",
+        "duration_ms": 9.083757,
+        "status": "ok",
+        "attributes": {
+          "http.method": "POST",
+          "http.route": "/internal/inventory/reservations",
+          "http.status_code": "404"
+        }
+      },
+      {
+        "span_id": "944dc025d081bd39",
+        "parent_span_id": "79ca09429de47020",
+        "service": "inventory-api",
+        "name": "inventory.reserve",
+        "start_time_ns": "1791005816132397526",
+        "duration_ms": 6.210336,
+        "status": "ok",
+        "attributes": {
+          "seckill.outcome": "rejected",
+          "seckill.error_code": "PRODUCT_NOT_FOUND"
+        }
+      },
+      {
+        "span_id": "77b975135da73ba8",
+        "parent_span_id": "944dc025d081bd39",
+        "service": "inventory-api",
+        "name": "connect",
+        "start_time_ns": "1791005816133248164",
+        "duration_ms": 0.49583,
+        "status": "ok",
+        "attributes": {
+          "db.system": "mysql"
+        }
+      },
+      {
+        "span_id": "991b2652c3a1c80c",
+        "parent_span_id": "944dc025d081bd39",
+        "service": "inventory-api",
+        "name": "SELECT",
+        "start_time_ns": "1791005816136763885",
+        "duration_ms": 0.626861,
+        "status": "ok",
+        "attributes": {
+          "db.system": "mysql",
+          "db.operation": "SELECT"
+        }
+      },
+      {
+        "span_id": "06d481c9fc4222ac",
+        "parent_span_id": "944dc025d081bd39",
+        "service": "inventory-api",
+        "name": "SELECT",
+        "start_time_ns": "1791005816138218505",
+        "duration_ms": 0.264961,
+        "status": "ok",
+        "attributes": {
+          "db.system": "mysql",
+          "db.operation": "SELECT"
+        }
+      }
+    ],
+    "scope": "environment_live"
+  },
+  "redis": {
+    "trace_id": "4d15f55b67b7c719d3f040831f667436",
+    "spans": [
+      {
+        "span_id": "d07cd16ffc7aac9b",
+        "parent_span_id": "",
+        "service": "inventory-api",
+        "name": "validation.redis",
+        "start_time_ns": "1791005814376487792",
+        "duration_ms": 2.542197,
+        "status": "ok",
+        "attributes": {}
+      },
+      {
+        "span_id": "f2f5be8f9267508d",
+        "parent_span_id": "d07cd16ffc7aac9b",
+        "service": "inventory-api",
+        "name": "inventory.redis_reserve",
+        "start_time_ns": "1791005814376537699",
+        "duration_ms": 2.471487,
+        "status": "ok",
+        "attributes": {
+          "seckill.outcome": "success"
+        }
+      },
+      {
+        "span_id": "7cb3ee5e9e53fb99",
+        "parent_span_id": "f2f5be8f9267508d",
+        "service": "inventory-api",
+        "name": "EVALSHA",
+        "start_time_ns": "1791005814376582395",
+        "duration_ms": 2.410126,
+        "status": "ok",
+        "attributes": {
+          "db.system": "redis"
+        }
+      }
+    ],
+    "scope": "environment_live"
+  }
+}

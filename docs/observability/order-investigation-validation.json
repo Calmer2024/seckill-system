@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "loaded_spans": 56,
+  "order_matching_spans": 15,
+  "complete_parent_tree": true,
+  "same_panel_database_detail": true,
+  "node_url_restore": true,
+  "aligned_waterfall": true,
+  "cycle_and_context_handling": true,
+  "mobile_local_scroll": true,
+  "logs_return": true,
+  "cross_execution_link_fixture": true,
+  "data_modified": false
+}

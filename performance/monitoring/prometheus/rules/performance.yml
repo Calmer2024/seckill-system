@@ -3,20 +3,26 @@ groups:
     rules:
       - alert: HighHttpErrorRate
         expr: |
-          sum(rate(http_requests_total{status=~"5.."}[2m]))
+          sum by (service) (rate(http_requests_total{status=~"5.."}[2m]))
           /
-          clamp_min(sum(rate(http_requests_total[2m])), 1)
+          sum by (service) (rate(http_requests_total[2m]))
           > 0.05
+          and on(service) sum by (service) (increase(http_requests_total[2m])) >= 20
         for: 2m
         labels:
           severity: warning
+          environment: local
         annotations:
           summary: HTTP 5xx error rate is above 5 percent
+          runbook_url: /docs/observability/p3-runbooks.md
 
       - alert: KafkaConsumerLagGrowing
-        expr: sum(kafka_consumergroup_lag) > 100
+        expr: sum by (consumergroup,topic) (clamp_min(kafka_consumergroup_lag{consumergroup=~"seckill-inventory-order-created|seckill-order-inventory-result|seckill-order-payment",topic=~"seckill-order-created-topic|seckill-inventory-result-topic|seckill-payment-topic"},0)) > 100
         for: 2m
         labels:
           severity: warning
+          environment: local
+          service: kafka
         annotations:
           summary: Kafka consumer lag is above 100 messages
+          runbook_url: /docs/observability/p3-runbooks.md

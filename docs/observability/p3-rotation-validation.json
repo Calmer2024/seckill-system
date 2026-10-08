@@ -1,0 +1,23 @@
+{
+  "log_driver": {
+    "Type": "json-file",
+    "Config": {
+      "max-file": "3",
+      "max-size": "2k"
+    }
+  },
+  "tail_received": true,
+  "logs": [
+    {
+      "timestamp_ns": "1791010901899841190",
+      "service": "order-worker",
+      "instance": "seckill_p3_log_rotation",
+      "fields": {
+        "level": "INFO",
+        "event": "p3_rotation_validation",
+        "message": "p3-rotation-tail-confirmed",
+        "trace_id": ""
+      }
+    }
+  ]
+}

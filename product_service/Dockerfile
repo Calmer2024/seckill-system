@@ -9,11 +9,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # 2. 优化缓存：先拷贝并安装依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY product_service/requirements.txt .
+COPY packages/seckill-observability /opt/seckill-observability
+RUN pip install --no-cache-dir -r requirements.txt /opt/seckill-observability
 
 # 3. 拷贝项目代码
-COPY ./app /app/app
+COPY product_service/app /app/app
+RUN python /opt/seckill-observability/build_version.py
 
 # 4. 创建非 root 用户并切换 (安全最佳实践)
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app && mkdir -p /tmp/prometheus-multiproc && chown appuser /tmp/prometheus-multiproc

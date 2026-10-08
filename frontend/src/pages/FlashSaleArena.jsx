@@ -1,4 +1,4 @@
-import { Icon } from '@iconify/react';
+import { Icon } from '../components/Icon';
 import React, { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
@@ -218,7 +218,7 @@ export default function FlashSaleArena({ session }) {
     <section className="bg-white pt-28 md:pt-32">
       <div className="dream-shell">
         <nav aria-label="面包屑导航" className="mb-6 flex items-center gap-2 text-xs text-[#6e6e73]">
-          <Link to="/" className="hover:text-[#0066cc]">商店</Link><Icon icon="lucide:chevron-right" className="h-3 w-3" /><span>{product?.categoryLabel || '商品详情'}</span>
+          <Link to="/" className="hover:text-[#0066cc]">商店</Link><Icon icon="chevron-right" className="h-3 w-3" /><span>{product?.categoryLabel || '商品详情'}</span>
         </nav>
         <section className="border-b border-[#e5e5e7] pb-14">
           <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-16">
@@ -233,7 +233,7 @@ export default function FlashSaleArena({ session }) {
 
               <div className="mt-5 flex flex-wrap items-center gap-5 text-sm text-[#6e6e73]">
                 <span className="inline-flex items-center gap-2">
-                  <Icon icon="lucide:star" className="h-4 w-4 text-accent-yellow" />
+                  <Icon icon="star" className="h-4 w-4 text-accent-yellow" />
                   <span className="font-semibold text-primary">{product?.rating || '--'}</span>
                   <span>{product?.reviewsLabel || '0 条评价'}</span>
                 </span>

@@ -10,6 +10,7 @@ param(
     [int]$UserIdStart = 9000001,
     [int]$UserCount = 10000,
     [int]$ConvergenceWaitSeconds = 15,
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')]
     [string]$RunId = (Get-Date -Format 'yyyyMMdd-HHmmss'),
     [string]$CompareTo,
     [switch]$WithMonitoring,
@@ -30,6 +31,18 @@ Set-Location $repoRoot
 $composeFiles = @('docker-compose.yml')
 if ($Mode -eq 'baseline') {
     $composeFiles += 'performance/config/docker-compose.baseline.yml'
+}
+if ($WithMonitoring) {
+    $composeFiles += 'docker-compose.observability.yml'
+    # Child Python helpers also invoke Compose; inherit only the known audit secret.
+    if (-not $env:OBSERVABILITY_AUDIT_PASSWORD) {
+        $auditEnvironment = Join-Path $repoRoot '.env.observability.local'
+        if (Test-Path -LiteralPath $auditEnvironment) {
+            $auditLine = Get-Content -LiteralPath $auditEnvironment | Where-Object { $_ -match '^OBSERVABILITY_AUDIT_PASSWORD=[A-Za-z0-9_-]{24,128}$' } | Select-Object -First 1
+            if ($auditLine) { $env:OBSERVABILITY_AUDIT_PASSWORD = $auditLine.Substring(29) }
+        }
+        if (-not $env:OBSERVABILITY_AUDIT_PASSWORD) { throw 'Configure the P3 read-only audit account and .env.observability.local before monitoring. See docs/observability/p3.md.' }
+    }
 }
 
 $composeArgs = @('compose')
@@ -60,6 +73,11 @@ function Invoke-PythonScript {
 }
 
 $runDirectory = Join-Path $repoRoot "performance/reports/runs/$RunId"
+foreach ($existingArtifact in @('telemetry.json', 'k6-summary.json', 'report.json')) {
+    if (Test-Path -LiteralPath (Join-Path $runDirectory $existingArtifact)) {
+        throw 'RunId already has evidence. Choose a new RunId before starting services or resetting data.'
+    }
+}
 New-Item -ItemType Directory -Force -Path $runDirectory | Out-Null
 
 Write-Host "Starting core services for scenario '$Scenario' in '$Mode' mode..."
@@ -70,7 +88,7 @@ if (-not $NoBuild) {
 Invoke-Compose $upArguments
 
 if ($WithMonitoring) {
-    Write-Host 'Starting Prometheus, Grafana, and exporters...'
+    Write-Host 'Starting Prometheus, Grafana, exporters, Collector, and Tempo...'
     Invoke-Compose ($composeArgs + @('--profile', 'monitoring', 'up', '-d'))
 }
 
@@ -116,8 +134,11 @@ $k6Arguments = $composeArgs + @(
 )
 
 Write-Host "Running k6 scenario '$Scenario'..."
+$telemetryPath = Join-Path $runDirectory 'telemetry.json'
+$snapshotStartExit = Invoke-PythonScript @('performance/reports/observability_snapshot.py', '--output', $telemetryPath, '--phase', 'start', '--run-id', $RunId)
+if ($snapshotStartExit -ne 0) { throw 'Cannot capture immutable start evidence. Use a new RunId.' }
 $runStartEpoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-& docker @k6Arguments
+& docker @k6Arguments 2>&1 | Tee-Object -FilePath (Join-Path $runDirectory 'k6.log')
 $k6Exit = $LASTEXITCODE
 if ($k6Exit -ne 0) {
     Write-Warning "k6 exited with code $k6Exit. The report will include the failed load result."
@@ -163,6 +184,8 @@ if ($WithMonitoring) {
 }
 
 $k6SummaryPath = Join-Path $runDirectory 'k6-summary.json'
+$snapshotEndExit = Invoke-PythonScript @('performance/reports/observability_snapshot.py', '--output', $telemetryPath, '--phase', 'end', '--run-id', $RunId)
+if ($snapshotEndExit -ne 0) { Write-Warning 'End telemetry evidence is unavailable; the report retains the start snapshot.' }
 $reportArguments = @(
     'performance/reports/generate_report.py',
     '--k6-summary', $k6SummaryPath,
@@ -172,6 +195,7 @@ $reportArguments = @(
     '--scenario', $Scenario,
     '--mode', $Mode
 )
+$reportArguments += @('--telemetry', $telemetryPath)
 if ($WithMonitoring) {
     $reportArguments += @('--metrics', $metricsPath)
 }

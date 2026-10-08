@@ -1,0 +1,398 @@
+{
+  "scope": "local isolated read-only catalog; 4 VUs; cache disabled; same image and limits",
+  "sampling_ratio": 0.1,
+  "sdk_queue_spans_per_process": 2048,
+  "sdk_export_timeout_seconds": 1,
+  "runs": [
+    {
+      "name": "cold-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:38:07.719827+00:00",
+      "finished_at": "2026-10-03T10:38:30.655566+00:00",
+      "exit_code": 0,
+      "requests": 6825,
+      "rps": 341.00129757478993,
+      "p95_ms": 77.2555582,
+      "p99_ms": 79.116997,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.941621754385965,
+      "memory_bytes": 339460096,
+      "memory_peak_bytes": 339927040,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "7089e8f51ae46c32fa885a1f916afb57",
+          "request_id": "9c114f272cd54db89f5daa6f04650337"
+        },
+        {
+          "trace_id": "524ec2eecff872bdf7d361b9dae83166",
+          "request_id": "dd10ed818cdb46c5b473cd9df9aa994b"
+        },
+        {
+          "trace_id": "4bf31bdf00a7de6e4ffe2472a5849e5b",
+          "request_id": "7a78916998df4f96afb394e1d1edea37"
+        },
+        {
+          "trace_id": "b932e44d6c7cbace513ee581e533fb6b",
+          "request_id": "7e88ce93fd8f4bc48d286e7b6ba11b81"
+        }
+      ],
+      "raw_file": "budgeted-cold-off.json"
+    },
+    {
+      "name": "cold-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:38:36.192719+00:00",
+      "finished_at": "2026-10-03T10:38:59.255737+00:00",
+      "exit_code": 0,
+      "requests": 6422,
+      "rps": 320.0977577714856,
+      "p95_ms": 77.55910295000001,
+      "p99_ms": 78.82949755,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9435388852572434,
+      "memory_bytes": 348893184,
+      "memory_peak_bytes": 349364224,
+      "docker_log_utf8_bytes": 4288333,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "a0b2f0411c484c36708f39ae2cac14a0",
+          "request_id": "487dff8b11ad46418690165dd0ff6642"
+        },
+        {
+          "trace_id": "3935cc1d4181af7426128277dce39ea3",
+          "request_id": "268c45096dbb44d09a2ffb8c0699a35b"
+        },
+        {
+          "trace_id": "9904e8ff7245d40507359e7d96cdf6fa",
+          "request_id": "b7d4c65decbb4505afac0775d629b4ba"
+        },
+        {
+          "trace_id": "1d36301a26f1a535407190fc636ce871",
+          "request_id": "6dac79dcef194ae4a18f4efb275081f0"
+        }
+      ],
+      "raw_file": "budgeted-cold-on.json"
+    },
+    {
+      "name": "pair-0-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:38:59.257751+00:00",
+      "finished_at": "2026-10-03T10:39:22.326766+00:00",
+      "exit_code": 0,
+      "requests": 6772,
+      "rps": 337.34102995125124,
+      "p95_ms": 77.29166455,
+      "p99_ms": 78.71276773000001,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9406633750971845,
+      "memory_bytes": 338354176,
+      "memory_peak_bytes": 339927040,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "7e829032e1e7589058eb1bf272fe0878",
+          "request_id": "695acb9d7f4b4926b1198bbf1765abbc"
+        },
+        {
+          "trace_id": "adf6e26c9de095fa82b14d988921e623",
+          "request_id": "53c61a30aaae474ebcd7efa5d547c6bd"
+        },
+        {
+          "trace_id": "5654176db788f57fc1bd987afc913bcd",
+          "request_id": "e81f0315ebcb4bb4a91b510169e415b2"
+        },
+        {
+          "trace_id": "62ff8d50970058b042a62e3783a9e5ad",
+          "request_id": "1563909c0bc8470980e38fab6fa48df8"
+        }
+      ],
+      "raw_file": "budgeted-pair-0-off.json"
+    },
+    {
+      "name": "pair-0-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:39:22.326766+00:00",
+      "finished_at": "2026-10-03T10:39:45.262745+00:00",
+      "exit_code": 0,
+      "requests": 6254,
+      "rps": 312.62044631832975,
+      "p95_ms": 77.6089634,
+      "p99_ms": 78.82853236,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.942244940028176,
+      "memory_bytes": 350044160,
+      "memory_peak_bytes": 350511104,
+      "docker_log_utf8_bytes": 4147829,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "9a0cf202b474a32d48b6df0cb8083fe1",
+          "request_id": "3dcb4fb758f941eabc3acce71e539586"
+        },
+        {
+          "trace_id": "f7a114db7cdef566fa9eaa7639d618f9",
+          "request_id": "21fc05fc27b54300b9bb2375f3670560"
+        },
+        {
+          "trace_id": "fec4b559fbb595980b5da86330424b9a",
+          "request_id": "af3f7e710d8c4627aadc7f26ed7f7f6e"
+        },
+        {
+          "trace_id": "1aa0f2be4b2e041ee02370689bdb069a",
+          "request_id": "97a63701176948ea9d4113ae963623b4"
+        }
+      ],
+      "raw_file": "budgeted-pair-0-on.json"
+    },
+    {
+      "name": "pair-1-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:39:45.262745+00:00",
+      "finished_at": "2026-10-03T10:40:08.341702+00:00",
+      "exit_code": 0,
+      "requests": 6370,
+      "rps": 317.6926718212822,
+      "p95_ms": 77.5836976,
+      "p99_ms": 78.84370892999999,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.943984396899873,
+      "memory_bytes": 350351360,
+      "memory_peak_bytes": 350867456,
+      "docker_log_utf8_bytes": 4209400,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "d33a85db7f44b52521f87ac8f4c5f668",
+          "request_id": "6f603e0df2194daf838742b39c64e4cf"
+        },
+        {
+          "trace_id": "044541c3b790a4651ba56553bd3fcf19",
+          "request_id": "b34b8aff24e5467b8fc80c83c39ec4d2"
+        },
+        {
+          "trace_id": "4b08c427b9f81b24b844288a13e6f186",
+          "request_id": "1e0ba6751e3843fb8b8eab541847ea51"
+        },
+        {
+          "trace_id": "a78a53a12553db01b8d85268bf02092f",
+          "request_id": "020e28b837ef464da1651fbb609e50d3"
+        }
+      ],
+      "raw_file": "budgeted-pair-1-on.json"
+    },
+    {
+      "name": "pair-1-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:40:08.344213+00:00",
+      "finished_at": "2026-10-03T10:40:31.138943+00:00",
+      "exit_code": 0,
+      "requests": 6721,
+      "rps": 336.06602396408863,
+      "p95_ms": 77.32762,
+      "p99_ms": 78.77972679999999,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9469910252792889,
+      "memory_bytes": 340824064,
+      "memory_peak_bytes": 341291008,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "ce1dfdd886a753ea6634c87d4b7e94a4",
+          "request_id": "2c3236af7b8d4995956b77ab3a0dc0cc"
+        },
+        {
+          "trace_id": "c63b17ee714317c64bb53c2a56569156",
+          "request_id": "38700e9aabc44f6c8fc990cae3e18db3"
+        },
+        {
+          "trace_id": "b5b7fe40242fb8323bd6513216742ffa",
+          "request_id": "55dadec4f95344f8a8be9a055ecbd78d"
+        },
+        {
+          "trace_id": "401a050635bfeb19c9ff4c63ff6643be",
+          "request_id": "d6aa540211f9447ba7b1a0ca9fe5f6da"
+        }
+      ],
+      "raw_file": "budgeted-pair-1-off.json"
+    },
+    {
+      "name": "pair-2-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:40:31.138943+00:00",
+      "finished_at": "2026-10-03T10:40:54.124059+00:00",
+      "exit_code": 0,
+      "requests": 6567,
+      "rps": 327.5229718583934,
+      "p95_ms": 77.4045464,
+      "p99_ms": 79.05472742,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9430816450420346,
+      "memory_bytes": 342024192,
+      "memory_peak_bytes": 342491136,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "f8e4c6b498f6628bdae576cd5e061269",
+          "request_id": "d25094b59fab4489800c3d886502cc1d"
+        },
+        {
+          "trace_id": "582e441437d3ebab8547906a688dfa8d",
+          "request_id": "770176c1f2cd4614aa907419842294af"
+        },
+        {
+          "trace_id": "bf9fddd25d58d5c58d2ddb8959824a1b",
+          "request_id": "428cb82fd1cc4aaf8b1c7304389165d6"
+        },
+        {
+          "trace_id": "149651cf2ce9f983bf8486fd28d3c6da",
+          "request_id": "2aceb0163b374d10a68af42adf94040d"
+        }
+      ],
+      "raw_file": "budgeted-pair-2-off.json"
+    },
+    {
+      "name": "pair-2-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:40:54.124059+00:00",
+      "finished_at": "2026-10-03T10:41:17.206117+00:00",
+      "exit_code": 0,
+      "requests": 6018,
+      "rps": 300.79424109074586,
+      "p95_ms": 77.89705144999999,
+      "p99_ms": 79.15500831,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9402901522955495,
+      "memory_bytes": 351121408,
+      "memory_peak_bytes": 351588352,
+      "docker_log_utf8_bytes": 4006724,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "9cbaec49035de9fcd373b5f4ff21916b",
+          "request_id": "5f30f050fdb447d1a994a2d062875418"
+        },
+        {
+          "trace_id": "98de8ac3d1be6f354377215aa2fbf150",
+          "request_id": "7fb4c51ffecb4c85886459be798b020d"
+        },
+        {
+          "trace_id": "5450300c9f35787e705dcaaa41922ef9",
+          "request_id": "bfbac1cad89248e1842f19a599b3b0e3"
+        },
+        {
+          "trace_id": "f95528a07aadbc477dbbbedc3a352e27",
+          "request_id": "417a9eeb8fa549e2a85518f93c14741c"
+        }
+      ],
+      "raw_file": "budgeted-pair-2-on.json"
+    },
+    {
+      "name": "collector-unavailable",
+      "target": "on",
+      "started_at": "2026-10-03T10:41:18.077080+00:00",
+      "finished_at": "2026-10-03T10:41:41.197409+00:00",
+      "exit_code": 0,
+      "requests": 5508,
+      "rps": 275.3807253870403,
+      "p95_ms": 78.4407644,
+      "p99_ms": 79.59102503000001,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9399871531313225,
+      "memory_bytes": 356229120,
+      "memory_peak_bytes": 356696064,
+      "docker_log_utf8_bytes": 3708488,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "e23cc1f42960e88aa6530da7c6447430",
+          "request_id": "2fdb0a2576fa44bba69c8caf4fb5065f"
+        },
+        {
+          "trace_id": "f856155ce72ab6f7c4b983e63505031d",
+          "request_id": "50baabe19f23407d9d7d8cc6ec850bc3"
+        },
+        {
+          "trace_id": "599a403e6f9d2afe3a413ad1f0029520",
+          "request_id": "47054accc8f445c68fc93976e099a212"
+        },
+        {
+          "trace_id": "395b154099fea7e6586c31798241b747",
+          "request_id": "040cebefbfbe47ce941a979b5a96d0a3"
+        }
+      ],
+      "raw_file": "budgeted-collector-unavailable.json"
+    }
+  ],
+  "fault": {
+    "business_available": true,
+    "trace_recovered": true,
+    "recovered_trace_id": "9583e15870ed40968bea103f8513457a"
+  },
+  "production_ready": false,
+  "contracts": {
+    "random_404_paths": 100,
+    "unmatched_metric_series": 1,
+    "bounded_route_cardinality": true,
+    "restart_clears_old_multiprocess_counters": true,
+    "requests_before_restart": 30674.0,
+    "requests_after_restart": 1.0,
+    "database_unavailable_http_status": "503",
+    "database_fault_visible": true,
+    "database_recovered": true
+  },
+  "gates": {
+    "measurement_complete": true,
+    "zero_http_errors": true,
+    "median_rps_loss": 0.07328069057147846,
+    "median_p95_increase": 0.004105214344229058,
+    "overhead_within_5_percent": false,
+    "fault_isolation": true,
+    "cardinality_and_restart": true,
+    "database_fault_and_recovery": true,
+    "production_ready": false,
+    "production_blockers": [
+      "No production cluster validation",
+      "No real external alert delivery validation",
+      "Local shared-host performance is not a production capacity result"
+    ]
+  },
+  "generated_at": "2026-10-03T10:42:12.727223+00:00",
+  "deployments": [
+    {
+      "service": "product-on",
+      "image_id": "sha256:ce73c54aa795b8f422c19c386c416139b72c56b78bc00989260f221702732949",
+      "memory_limit_bytes": 402653184,
+      "nano_cpus": 1000000000,
+      "telemetry_settings": {
+        "OBSERVABILITY_ENVIRONMENT": "p4-isolated",
+        "SECKILL_ACCESS_LOG_SAMPLE_RATIO": "0.1",
+        "SECKILL_TRACING_ENABLED": "true",
+        "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+        "SECKILL_OBSERVABILITY_ENABLED": "true"
+      }
+    },
+    {
+      "service": "product-off",
+      "image_id": "sha256:ce73c54aa795b8f422c19c386c416139b72c56b78bc00989260f221702732949",
+      "memory_limit_bytes": 402653184,
+      "nano_cpus": 1000000000,
+      "telemetry_settings": {
+        "OBSERVABILITY_ENVIRONMENT": "p4-isolated",
+        "SECKILL_ACCESS_LOG_SAMPLE_RATIO": "0.1",
+        "SECKILL_OBSERVABILITY_ENABLED": "false",
+        "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+        "SECKILL_TRACING_ENABLED": "false"
+      }
+    }
+  ],
+  "deployment_evidence_scope": "captured after trial, before isolation cleanup",
+  "duration_seconds": 20,
+  "access_log_sample_ratio": 0.1,
+  "successful_db_read_log_level": "INFO"
+}

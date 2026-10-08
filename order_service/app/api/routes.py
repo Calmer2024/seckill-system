@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from seckill_observability.tracing import business_span
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_order_application_service
@@ -40,6 +41,7 @@ def pay_order(
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
+@business_span('order.detail')
 def get_order_detail(
     order_id: int,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
@@ -53,6 +55,7 @@ def get_order_detail(
 
 
 @router.get("", response_model=list[OrderResponse])
+@business_span('order.list')
 def list_orders_by_user(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     order_db: Annotated[Session, Depends(get_order_db)],

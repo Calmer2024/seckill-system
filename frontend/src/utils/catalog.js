@@ -1,16 +1,16 @@
 const CATEGORY_DEFINITIONS = [
-  { key: 'all', label: '全部商品', icon: 'lucide:grid-2x2' },
-  { key: 'home', label: '居家好物', icon: 'lucide:house' },
-  { key: 'music', label: '音乐设备', icon: 'lucide:music' },
-  { key: 'desk', label: '桌面办公', icon: 'lucide:monitor' },
-  { key: 'kitchen', label: '厨房电器', icon: 'lucide:chef-hat' },
-  { key: 'wellness', label: '个护舒缓', icon: 'lucide:sparkles' },
+  { key: 'all', label: '全部商品', icon: 'grid-2x2' },
+  { key: 'home', label: '居家好物', icon: 'house' },
+  { key: 'music', label: '音乐设备', icon: 'music' },
+  { key: 'desk', label: '桌面办公', icon: 'monitor' },
+  { key: 'kitchen', label: '厨房电器', icon: 'chef-hat' },
+  { key: 'wellness', label: '个护舒缓', icon: 'sparkles' },
 ];
 
 const QUICK_FILTERS = [
-  { key: 'new', label: '新品优先', icon: 'lucide:sparkles' },
-  { key: 'best', label: '高分推荐', icon: 'lucide:award' },
-  { key: 'discount', label: '秒杀折扣', icon: 'lucide:tag' },
+  { key: 'new', label: '新品优先', icon: 'sparkles' },
+  { key: 'best', label: '高分推荐', icon: 'award' },
+  { key: 'discount', label: '秒杀折扣', icon: 'tag' },
 ];
 
 function formatRating(value) {

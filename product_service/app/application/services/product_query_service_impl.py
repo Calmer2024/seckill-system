@@ -1,6 +1,7 @@
 import random
 import time
 import uuid
+from seckill_observability.tracing import business_span
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -31,6 +32,7 @@ class ProductQueryServiceImpl(ProductQueryService):
         self.product_repository = product_repository
         self.cache_service = cache_service
 
+    @business_span('product.list')
     def list_products(self, query: ProductListQuery) -> list[ProductResponse]:
         if not settings.ENABLE_PRODUCT_CACHE:
             return [ProductResponse.from_entity(product) for product in self._load_products_from_db(query)]
@@ -57,6 +59,7 @@ class ProductQueryServiceImpl(ProductQueryService):
             ProductListQuery(page=1, size=query.limit, keyword=query.keyword)
         )
 
+    @business_span('product.detail')
     def get_product_detail(self, product_id: int) -> ProductResponse:
         if not settings.ENABLE_PRODUCT_CACHE:
             product = self._load_product_from_db(product_id)
@@ -282,7 +285,7 @@ class ProductQueryServiceImpl(ProductQueryService):
         try:
             products = self.product_repository.list_products(query.page, query.size, query.keyword)
             PRODUCT_DB_READS_TOTAL.labels("list", "success").inc()
-            logger.info(
+            logger.debug(
                 "product list loaded from database",
                 extra={
                     "event": "product_list_db_read",
@@ -310,7 +313,7 @@ class ProductQueryServiceImpl(ProductQueryService):
         try:
             product = self.product_repository.get_by_id(product_id)
             PRODUCT_DB_READS_TOTAL.labels("detail", "success").inc()
-            logger.info(
+            logger.debug(
                 "product detail loaded from database",
                 extra={
                     "event": "product_detail_db_read",

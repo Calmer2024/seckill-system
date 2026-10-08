@@ -1,3 +1,7 @@
+mountWorkspace();
+window.performanceObservability.mount();
+window.workspaceControls.enhance();
+
 const API_PREFIX = '/api/performance';
 
 const DEFAULT_FORM = {
@@ -123,6 +127,9 @@ const elements = {
   overviewRecent: document.querySelector('#overview-recent'),
   overviewCount: document.querySelector('#overview-count'),
   rawReportToggle: document.querySelector('#raw-report-toggle'),
+  observabilitySnapshot: document.querySelector('#observability-snapshot'),
+  evalSnapshot: document.querySelector('#eval-snapshot'),
+  currentLocation: document.querySelector('#current-location'),
 };
 
 function escapeHtml(value) {
@@ -254,11 +261,7 @@ function showToast(message, tone = 'info') {
 }
 
 function closeSelects(except = null) {
-  document.querySelectorAll('.custom-select').forEach((root) => {
-    if (root === except) return;
-    root.querySelector('.select-menu').hidden = true;
-    root.querySelector('.select-trigger').setAttribute('aria-expanded', 'false');
-  });
+  window.workspaceControls.close(except);
 }
 
 function setSelectOptions(name, options, preferred) {
@@ -271,45 +274,6 @@ function setSelectOptions(name, options, preferred) {
   input.value = selected.value;
   root.querySelector('.select-trigger span').textContent = selected.label;
 }
-
-document.querySelectorAll('.custom-select').forEach((root) => {
-  const trigger = root.querySelector('.select-trigger');
-  const menu = root.querySelector('.select-menu');
-  trigger.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const willOpen = menu.hidden;
-    closeSelects(root);
-    menu.hidden = !willOpen;
-    trigger.setAttribute('aria-expanded', String(willOpen));
-  });
-  menu.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const option = event.target.closest('[data-value]');
-    if (!option) return;
-    const input = root.querySelector('input');
-    input.value = option.dataset.value;
-    root.querySelector('.select-trigger span').textContent = root._options.find((item) => item.value === input.value)?.label || '';
-    menu.querySelectorAll('[role="option"]').forEach((item) => item.setAttribute('aria-selected', String(item === option)));
-    closeSelects();
-    trigger.focus();
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  trigger.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const options = root._options || [];
-      const index = options.findIndex((item) => item.value === root.querySelector('input').value);
-      const next = options[(index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length];
-      if (next) menu.querySelector(`[data-value="${CSS.escape(next.value)}"]`)?.click();
-    }
-  });
-});
-document.addEventListener('click', (event) => {
-  if (!event.target.closest('.custom-select')) closeSelects();
-});
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeSelects();
-});
 
 function renderScenarioOptions() {
   const scenarios = state.scenarios.length ? state.scenarios : SCENARIO_FALLBACK;
@@ -327,19 +291,30 @@ function renderRuns() {
   const runs = state.runs;
   elements.overviewCount.textContent = String(runs.length);
   elements.overviewRecent.textContent = runs[0] ? scenarioLabel(runs[0].request?.scenario || runs[0].report_metadata?.scenario) : '暂无记录';
-  elements.historyEmpty.hidden = runs.length > 0;
-  elements.runsBody.innerHTML = runs.map((run) => {
-    const selected = state.selectedRun?.run_id === run.run_id ? 'is-selected' : '';
-    const reportAction = run.report_available
-      ? `<button class="table-link" type="button" data-select-run="${escapeHtml(run.run_id)}">查看</button>`
-      : '<span class="muted">等待</span>';
-    return `<tr class="${selected}">
-      <td><button class="run-id-link" type="button" data-select-run="${escapeHtml(run.run_id)}">${escapeHtml(run.run_id)}</button></td>
-      <td>${escapeHtml(scenarioLabel(run.request?.scenario || run.report_metadata?.scenario))}</td>
-      <td>${escapeHtml(modeLabel(run.request?.mode || run.report_metadata?.mode))}</td>
-      <td><span class="status-badge status-${escapeHtml(run.status)}">${escapeHtml(statusLabel(run.status))}</span></td>
-      <td>${reportAction}</td>
-    </tr>`;
+  const parsed = window.unifiedWorkspace.parseQuery(document.querySelector('#run-search').value, ['status','scenario','mode','run_id']);
+  for (const key of ['status','scenario','mode']) {
+    if(parsed.fields[key] && ![...document.querySelectorAll('[data-select="filter-'+key+'"] [data-value]')].some(option=>option.dataset.value===parsed.fields[key])) parsed.error=key+' 的值无效，请选择左侧标签。';
+  }
+  const query = parsed.text.toLocaleLowerCase();
+  const status = parsed.fields.status || document.querySelector('#run-status').value;
+  const scenario = parsed.fields.scenario || document.querySelector('#run-scenario').value;
+  const mode = parsed.fields.mode || document.querySelector('#run-mode').value;
+  const filtered = runs.filter((run) => {
+    const scene = scenarioLabel(run.request?.scenario || run.report_metadata?.scenario);
+    return (!parsed.error && (!parsed.fields.run_id || run.run_id === parsed.fields.run_id)) && (!status || run.status === status)
+      && (!scenario || (run.request?.scenario || run.report_metadata?.scenario) === scenario)
+      && (!mode || (run.request?.mode || run.report_metadata?.mode) === mode)
+      && (!query || (run.run_id + ' ' + scene).toLocaleLowerCase().includes(query));
+  });
+  elements.historyEmpty.hidden = filtered.length > 0;
+  elements.historyEmpty.textContent = runs.length ? '没有符合条件的运行任务。' : '还没有压测任务。使用工具栏中的新建任务按钮开始。';
+  document.querySelector('#clear-run-filters').hidden = !(query || status || scenario || mode);
+  document.querySelector('#run-filter-count').textContent = filtered.length + ' / ' + runs.length + ' 条';
+  window.unifiedWorkspace.runFacets({status,scenario,mode}, parsed.error);
+  elements.runsBody.innerHTML = filtered.map((run) => {
+    const scene = scenarioLabel(run.request?.scenario || run.report_metadata?.scenario);
+    const selected = state.selectedRun?.run_id === run.run_id;
+    return '<tr class="run-row' + (selected ? ' is-selected' : '') + '" data-select-run="' + escapeHtml(run.run_id) + '"><td><span class="status-badge status-' + escapeHtml(run.status) + '">' + escapeHtml(statusLabel(run.status)) + '</span></td><td><button class="tx-record-name" type="button">'+escapeHtml(scene)+'</button></td><td><code>'+escapeHtml(run.run_id)+'</code></td><td>'+escapeHtml(modeLabel(run.request?.mode || run.report_metadata?.mode))+'</td><td>'+escapeHtml(formatDate(run.started_at || run.created_at))+'</td><td>'+(run.report_available?'已生成':'等待报告')+'</td></tr>';
   }).join('');
   renderComparisonOptions();
 }
@@ -392,12 +367,16 @@ function renderReportLinks(task) {
     ['report.csv', 'CSV'],
     ['report.html', 'HTML'],
     ['validation.json', '校验 JSON'],
+    ['telemetry.json', '观测证据'],
+    ['k6.log', 'k6 执行日志'],
     ['controller.log', '日志'],
   ];
   elements.reportLinks.innerHTML = links
     .filter(([file]) => task.files[file])
     .map(([file, label]) => `<a href="${escapeHtml(task.files[file])}" ${file === 'report.html' ? 'target="_blank" rel="noreferrer"' : 'download'}>${escapeHtml(label)}</a>`)
     .join('');
+  const start=Math.floor(Date.parse(task.started_at||task.created_at)/1000),end=Math.min(Math.floor(Date.now()/1000),Math.ceil(Date.parse(task.ended_at||new Date().toISOString())/1000));
+  if(start>0&&end>start)elements.reportLinks.insertAdjacentHTML('beforeend',`<div class="ui-investigation-actions">${window.investigationNavigation.action('运行时段 Traces',{page:'traces',start,end})}${window.investigationNavigation.action('运行时段日志',{page:'logs',start,end})}${window.investigationNavigation.action('运行时段监控',{page:'monitoring',start,end})}<span class="ui-source-note">按时间筛选候选证据，未声明归属于本次压测。</span></div>`);
 }
 
 function renderReport(task) {
@@ -406,6 +385,8 @@ function renderReport(task) {
   if (!report) {
     elements.reportEmpty.hidden = false;
     elements.reportContent.hidden = true;
+    elements.observabilitySnapshot.innerHTML = '<div class="domain-empty">选择一条已完成的运行记录，查看采集结果。</div>';
+    elements.evalSnapshot.innerHTML = '<div class="domain-empty">选择包含一致性校验的压测报告，查看评估结果。</div>';
     return;
   }
   elements.reportEmpty.hidden = true;
@@ -416,6 +397,18 @@ function renderReport(task) {
   const load = report.load || {};
   const business = report.business || {};
   const observability = report.observability || {};
+  const observed = observability.metrics || {};
+  const snapshotKeys = ['http_rps', 'http_p95_seconds', 'http_error_rate', 'product_cache_hit_rate', 'kafka_max_lag', 'mysql_replica_lag_seconds'];
+  elements.observabilitySnapshot.innerHTML = snapshotKeys.map((key) => {
+    const status = observability.metric_status?.[key];
+    const value = status === 'not_applicable' ? '不适用' : status === 'collector_error' ? '采集异常' : formatObservabilityValue(key, observed[key]);
+    return `<div class="snapshot-metric"><span>${escapeHtml(OBSERVABILITY_LABELS[key])}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }).join('');
+  const evalChecks = validation.checks || [];
+  const passedChecks = evalChecks.filter((item) => item.passed).length;
+  elements.evalSnapshot.innerHTML = evalChecks.length
+    ? `<div class="eval-summary"><span class="status-badge ${validation.passed ? 'status-completed' : 'status-failed'}">${validation.passed ? '通过' : '失败'}</span><strong>${passedChecks} / ${evalChecks.length} 项通过</strong><span>任务 ${escapeHtml(metadata.run_id || task.run_id)}</span></div><div class="eval-check-list">${evalChecks.map((item) => `<div><span class="check-state ${item.passed ? 'pass' : 'fail'}">${workspaceIcon(item.passed ? 'check' : 'x')}</span><span>${escapeHtml(CHECK_LABELS[item.name] || item.name || '未命名校验')}</span><strong>${item.passed ? '通过' : '失败'}</strong></div>`).join('')}</div>`
+    : '<div class="domain-empty">该报告未包含一致性校验明细。</div>';
   const validationState = validation.checks?.length ? (validation.passed ? '通过' : '失败') : '未采集';
   const validationClass = validationState === '通过' ? 'pass' : validationState === '失败' ? 'fail' : 'unknown';
 
@@ -483,12 +476,100 @@ function renderAll() {
   renderRuns();
   renderActiveRun(state.selectedRun);
   renderReport(state.selectedRun);
+  renderRunContext();
+  updateNavigation();
 }
 
-async function selectRun(runId) {
+function renderRunContext() {
+  const task = state.selectedRun;
+  const request = task?.request || {};
+  document.querySelector('#run-title').textContent = task ? scenarioLabel(request.scenario || task.report_metadata?.scenario) : '压测结果';
+  document.querySelector('#run-subtitle').textContent = task
+    ? formatDate(task.started_at || task.created_at) + ' · ' + modeLabel(request.mode || task.report_metadata?.mode)
+    : '选择左侧记录查看报告';
+  document.querySelector('#run-context-id').textContent = task?.run_id || '';
+  document.querySelector('#run-context-scenario').textContent = task ? scenarioLabel(request.scenario || task.report_metadata?.scenario) : '';
+  const status = document.querySelector('#run-context-status');
+  status.textContent = task ? statusLabel(task.status) : '';
+  status.className = task ? 'status-badge status-' + task.status : 'status-badge';
+  document.querySelector('#observability-run-id').textContent = task?.run_id || '';
+  document.querySelector('#eval-run-id').textContent = task?.run_id || '';
+}
+
+function renderConfigSummary() {
+  const values = [
+    ['场景', scenarioLabel(elements.scenario.value)],
+    ['模式', modeLabel(document.querySelector('input[name="mode"]:checked')?.value)],
+    ['目标入口', document.querySelector('#base-url-value').textContent],
+    ['商品 ID', document.querySelector('#product-id').value],
+    ['初始库存', document.querySelector('#initial-stock').value],
+    ['用户数量', document.querySelector('#user-count').value],
+    ['监控采集', document.querySelector('#with-monitoring').checked ? '启用' : '关闭'],
+    ['对比基线', document.querySelector('#compare-to-value').textContent],
+  ];
+  document.querySelector('#config-summary').innerHTML = values.map(([label, value]) =>
+    '<div><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>'
+  ).join('');
+}
+
+function workspacePage() {
+  return {'#monitoring': 'monitoring', '#observability': 'monitoring', '#traces': 'traces', '#logs': 'logs'}[window.location.hash] || 'runs';
+}
+
+function updateNavigation() {
+  const url = new URL(window.location.href);
+  const page = workspacePage();
+  document.body.classList.add('ui-console');
+  const legacyView = {'#run/overview': 'run', '#run/report': 'report', '#eval': 'validation'}[url.hash];
+  if (legacyView) url.searchParams.set('view', legacyView);
+  url.hash = '#' + page;
+  if (page !== 'runs') ['run', 'view', 'q', 'status', 'scenario', 'mode'].forEach(key => url.searchParams.delete(key));
+  window.history.replaceState(null, '', url);
+  document.querySelectorAll('[data-workspace-page]').forEach(panel => {
+    panel.hidden = panel.dataset.workspacePage !== page;
+  });
+  document.querySelectorAll('[data-nav]').forEach(link => {
+    const active = link.dataset.nav === page;
+    link.classList.toggle('is-current', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+  const titles = {runs: '压测', monitoring: '监控', traces: 'Trace', logs: '日志'};
+  elements.currentLocation.textContent = titles[page];
+  elements.currentLocation.href = '/#' + page;
+  document.title = titles[page] + ' · 秒杀系统';
+  const requested = url.searchParams.get('view') || 'report';
+  const view = ['report', 'metrics', 'validation', 'run'].includes(requested) ? requested : 'report';
+  const hasRun = Boolean(state.selectedRun);
+  document.querySelector('.ui-run-detail').hidden=page!=='runs'||!hasRun||!url.searchParams.has('run');
+  document.querySelector('#detail-placeholder').hidden = hasRun;
+  document.querySelector('#detail-body').hidden = !hasRun;
+  document.querySelectorAll('[data-detail-view]').forEach(panel => {
+    panel.hidden = !hasRun || panel.dataset.detailView !== view;
+  });
+  document.querySelectorAll('[data-detail-tab]').forEach(tab => {
+    const active = tab.dataset.detailTab === view;
+    tab.classList.toggle('is-current', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  window.performanceObservability.activate(page);
+  if (page !== 'runs') {
+    window.clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+}
+
+async function selectRun(runId, preferredView = null) {
   try {
-    const task = await api(`/runs/${encodeURIComponent(runId)}`);
+    const task = await api('/runs/' + encodeURIComponent(runId));
+    if (workspacePage() !== 'runs') return;
     state.selectedRun = task;
+    const url = new URL(window.location.href);
+    url.searchParams.set('run', runId);
+    if (preferredView) url.searchParams.set('view', task.report ? preferredView : 'run');
+    else if (!url.searchParams.has('view')) url.searchParams.set('view', task.report ? 'report' : 'run');
+    url.hash = '#runs';
+    window.history.replaceState(null, '', url);
     renderAll();
     startPollingIfNeeded();
   } catch (error) {
@@ -500,7 +581,11 @@ async function loadRuns() {
   const payload = await api('/runs');
   state.runs = payload.runs || [];
   renderRuns();
-  if (!state.selectedRun && state.runs[0]) await selectRun(state.runs[0].run_id);
+  if (workspacePage() === 'runs' && !state.selectedRun && state.runs[0] && new URLSearchParams(location.search).has('run')) {
+    const requested = new URLSearchParams(window.location.search).get('run');
+    const initial = state.runs.find((run) => run.run_id === requested) || state.runs[0];
+    await selectRun(initial.run_id);
+  }
 }
 
 async function refreshSelected() {
@@ -525,7 +610,7 @@ async function refreshSelected() {
 function startPollingIfNeeded() {
   window.clearInterval(state.pollTimer);
   state.pollTimer = null;
-  if (state.selectedRun && isActive(state.selectedRun.status)) {
+  if (workspacePage() === 'runs' && state.selectedRun && isActive(state.selectedRun.status)) {
     state.pollTimer = window.setInterval(refreshSelected, 1600);
   }
 }
@@ -566,6 +651,7 @@ function setFormDefaults() {
   elements.confirmTarget.checked = false;
   elements.startRun.disabled = true;
   renderScenarioDetails();
+  renderConfigSummary();
 }
 
 async function submitRun(event) {
@@ -585,6 +671,12 @@ async function submitRun(event) {
   try {
     const task = await api('/runs', { method: 'POST', body: JSON.stringify(formPayload()) });
     state.selectedRun = task;
+    const url = new URL(window.location.href);
+    url.searchParams.set('run', task.run_id);
+    url.searchParams.set('view', 'run');
+    url.hash = '#runs';
+    window.history.replaceState(null, '', url);
+    document.querySelector('#new-run-dialog').close();
     renderAll();
     startPollingIfNeeded();
     await loadRuns();
@@ -627,6 +719,7 @@ async function checkController() {
 }
 
 elements.scenario.addEventListener('change', renderScenarioDetails);
+window.addEventListener('hashchange', updateNavigation);
 elements.rawReportToggle.addEventListener('click', () => {
   const expanded = elements.rawReportToggle.getAttribute('aria-expanded') === 'true';
   elements.rawReportToggle.setAttribute('aria-expanded', String(!expanded));
@@ -637,7 +730,7 @@ elements.confirmTarget.addEventListener('change', () => {
 });
 elements.form.addEventListener('submit', submitRun);
 elements.resetForm.addEventListener('click', setFormDefaults);
-elements.stopRun.addEventListener('click', stopSelectedRun);
+elements.stopRun.addEventListener('click', () => document.querySelector('#stop-confirmation').showModal());
 elements.refreshRuns.addEventListener('click', async () => {
   try {
     await loadRuns();
@@ -649,17 +742,125 @@ elements.refreshRuns.addEventListener('click', async () => {
 });
 elements.runsBody.addEventListener('click', (event) => {
   const button = event.target.closest('[data-select-run]');
-  if (button) selectRun(button.dataset.selectRun);
+  if (button) selectRun(button.dataset.selectRun, 'report');
 });
 
 async function boot() {
+  const legacyNew = window.location.hash === '#new';
+  const dialog = document.querySelector('#new-run-dialog');
+  document.querySelector('#open-new-run').addEventListener('click', () => {
+    elements.confirmTarget.checked = false;
+    elements.startRun.disabled = true;
+    dialog.showModal();
+  });
+  document.querySelector('#close-new-run').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  document.querySelector('#cancel-stop').addEventListener('click', () => document.querySelector('#stop-confirmation').close());
+  document.querySelector('#confirm-stop').addEventListener('click', () => {
+    document.querySelector('#stop-confirmation').close();
+    stopSelectedRun();
+  });
+  document.querySelector('.skip-link').addEventListener('click', (event) => {
+    event.preventDefault();
+    document.querySelector('#main-content').focus();
+  });
+  document.querySelectorAll('[data-detail-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', tab.dataset.detailTab);
+      window.history.replaceState(null, '', url);
+      updateNavigation();
+    });
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  document.querySelector('#run-search').value = params.get('q') || '';
+  const filters = {
+    status: [
+      { value: '', label: '全部状态' },
+      { value: 'queued', label: '排队中' },
+      { value: 'running', label: '运行中' },
+      { value: 'completed', label: '已完成' },
+      { value: 'failed', label: '失败' },
+      { value: 'stopped', label: '已停止' },
+      { value: 'interrupted', label: '中断' },
+    ],
+    scenario: [{ value: '', label: '全部场景' }, ...SCENARIO_FALLBACK.map((item) => ({ value: item.name, label: item.label }))],
+    mode: [
+      { value: '', label: '全部模式' },
+      { value: 'distributed', label: '分布式优化' },
+      { value: 'baseline', label: '基线方案' },
+    ],
+  };
+  Object.entries(filters).forEach(([name, options]) => {
+    setSelectOptions('filter-' + name, options, params.get(name) || '');
+  });
+  const initialQuery=window.unifiedWorkspace.parseQuery(document.querySelector('#run-search').value,['status','scenario','mode','run_id']);
+  ['status','scenario','mode'].forEach(key=>{const value=document.querySelector('#run-'+key).value;if(value&&!initialQuery.fields[key])document.querySelector('#run-search').value+=' '+key+':'+value;});
+  const updateRunFilters = () => {
+    const url = new URL(window.location.href);
+    const values = {
+      q: document.querySelector('#run-search').value.trim(),
+      status: document.querySelector('#run-status').value,
+      scenario: document.querySelector('#run-scenario').value,
+      mode: document.querySelector('#run-mode').value,
+    };
+    Object.entries(values).forEach(([name, value]) => {
+      if (value) url.searchParams.set(name, value);
+      else url.searchParams.delete(name);
+    });
+    window.history.replaceState(null, '', url);
+    renderRuns();
+  };
+  document.querySelector('#run-search').addEventListener('input', () => {const parsed=window.unifiedWorkspace.parseQuery(document.querySelector('#run-search').value,['status','scenario','mode','run_id']);if(!parsed.error)['status','scenario','mode'].forEach(key=>document.querySelector('#run-'+key).value=parsed.fields[key]||'');updateRunFilters();});
+  ['status', 'scenario', 'mode'].forEach((name) => {
+    document.querySelector('#run-' + name).addEventListener('change', updateRunFilters);
+  });
+  document.querySelector('#clear-run-filters').addEventListener('click', () => {
+    document.querySelector('#run-search').value = '';
+    Object.entries(filters).forEach(([name, options]) => setSelectOptions('filter-' + name, options, ''));
+    updateRunFilters();
+  });
+  elements.form.addEventListener('input', renderConfigSummary);
+  elements.form.addEventListener('change', renderConfigSummary);
+  const navigateWorkspace = async () => {
+    updateNavigation();
+    window.scrollTo(0, 0);
+    if (workspacePage() === 'runs') {
+      try { await loadRuns(); startPollingIfNeeded(); }
+      catch (error) { showToast('无法读取运行历史：' + error.message, 'error'); }
+    }
+  };
+  document.querySelectorAll('[data-nav]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    const url = new URL(window.location.href);
+    url.hash = link.hash;
+    if (link.dataset.nav === 'runs' && state.selectedRun) url.searchParams.set('run', state.selectedRun.run_id);
+    window.history.pushState(null, '', url);
+    navigateWorkspace();
+  }));
+  window.addEventListener('hashchange', navigateWorkspace);
+  window.addEventListener('popstate', navigateWorkspace);
+  window.addEventListener('observability:open', event => {
+    const {page, trace_id, at} = event.detail || {};
+    if (!['logs', 'traces'].includes(page) || !/^[0-9a-f]{32}$/.test(trace_id || '')) return;
+    const url = new URL(window.location.href);
+    url.hash = '#' + page;
+    window.history.pushState(null, '', url);
+    navigateWorkspace();
+    if (page === 'traces') window.performanceObservability.openTrace(trace_id);
+    else window.workspaceSignals.openLogs(trace_id, at);
+  });
+  updateNavigation();
   renderScenarioOptions();
   setFormDefaults();
+  if (legacyNew) dialog.showModal();
   await checkController();
-  try {
-    await loadRuns();
-  } catch (error) {
-    showToast(`无法读取运行历史：${error.message}`, 'error');
+  if (workspacePage() === 'runs') {
+    try { await loadRuns(); }
+    catch (error) { showToast('无法读取运行历史：' + error.message, 'error'); }
   }
   renderAll();
 }

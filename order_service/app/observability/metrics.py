@@ -1,3 +1,5 @@
+from seckill_observability.context import metric_method
+
 from prometheus_client import Counter, Histogram, generate_latest
 
 
@@ -19,8 +21,8 @@ SECKILL_REQUESTS_TOTAL = Counter(
 
 
 def record_http_request(method: str, path: str, status: int, duration_seconds: float) -> None:
-    HTTP_REQUESTS_TOTAL.labels("order", method, path, str(status)).inc()
-    HTTP_REQUEST_DURATION_SECONDS.labels("order", method, path).observe(duration_seconds)
+    HTTP_REQUESTS_TOTAL.labels("order", metric_method(method), path, str(status)).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels("order", metric_method(method), path).observe(duration_seconds)
 
 
 def metrics_payload() -> bytes:

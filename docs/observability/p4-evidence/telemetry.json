@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "run_id": "p4-local-validation",
+  "start": {
+    "captured_at": "2026-10-03T10:28:28.900316+00:00",
+    "git_revision": "6e0c62c6f59533021ab639967c4a230f7cd4403d",
+    "working_tree_dirty": true,
+    "telemetry_source_sha256": "715bd091957031e2c5f4fe3338c2057bbb72fa96ff96c194883c42b6578e7a2d",
+    "backends": {
+      "prometheus": {
+        "available": true,
+        "http_status": 200
+      },
+      "tempo": {
+        "available": true,
+        "http_status": 200
+      },
+      "loki": {
+        "available": false,
+        "error_type": "HTTPError"
+      },
+      "collector": {
+        "available": true,
+        "http_status": 200
+      },
+      "alertmanager": {
+        "available": true,
+        "http_status": 200
+      },
+      "alert_receiver": {
+        "available": true,
+        "http_status": 200
+      }
+    },
+    "scope": "local",
+    "deployments": [
+      {
+        "container": "seckill_user",
+        "image_id": "sha256:c01948dd0ec5ede66fcae14a272f93e7d8a8c1f3bd35ede8cacc383b7e7d91bd",
+        "started_at": "2026-10-03T05:35:00.526782934Z",
+        "running": true,
+        "telemetry_settings": {
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true"
+        }
+      },
+      {
+        "container": "seckill_product_1",
+        "image_id": "sha256:fa1dc884ef571c253234c7e4cdd6e1f20001b5027aa20d2c2d513e9090e7c78a",
+        "started_at": "2026-10-03T05:35:00.522754507Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local"
+        }
+      },
+      {
+        "container": "seckill_product_2",
+        "image_id": "sha256:484c35a4a61a6977a2174ecae3c590a563e2c65e48bf61510f07d40ce6b7d36b",
+        "started_at": "2026-10-03T05:35:00.530890504Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local"
+        }
+      },
+      {
+        "container": "seckill_order_service",
+        "image_id": "sha256:c595adc445c303946b4d2644fe94dbf6fbe3cbd87ad6ef1f703f90eb58e40e76",
+        "started_at": "2026-10-03T06:03:10.746414072Z",
+        "running": true,
+        "telemetry_settings": {
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1"
+        }
+      },
+      {
+        "container": "seckill_inventory_service",
+        "image_id": "sha256:2f9cf60e12c166942867ecbc5e96eec0800b5dea917e1295d219ee2d1cd38a0b",
+        "started_at": "2026-10-03T06:03:10.738427516Z",
+        "running": true,
+        "telemetry_settings": {
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACING_ENABLED": "true"
+        }
+      },
+      {
+        "container": "seckill_order_worker",
+        "image_id": "sha256:0132718f922f91daa29823f707024d79a633ea46bfd3ceff59d52400c488ae92",
+        "started_at": "2026-10-03T06:03:10.979523321Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACING_ENABLED": "true",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown"
+        }
+      },
+      {
+        "container": "seckill_inventory_worker",
+        "image_id": "sha256:0a46d3ea41fe619e49e25b3da2fd8a448dbb8cf6e29797311440594cac8c52c0",
+        "started_at": "2026-10-03T06:03:10.750390916Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACING_ENABLED": "true",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1"
+        }
+      }
+    ],
+    "sampling_policy": "ParentBased TraceIdRatioBased; deployment settings must be checked separately",
+    "production_ready": false
+  },
+  "end": {
+    "captured_at": "2026-10-03T10:32:55.114223+00:00",
+    "git_revision": "6e0c62c6f59533021ab639967c4a230f7cd4403d",
+    "working_tree_dirty": true,
+    "telemetry_source_sha256": "52fc3809e85bddb0da37b6a26a8515bb6a4a019f63c009b8f3d6b20b7c351d6a",
+    "backends": {
+      "prometheus": {
+        "available": true,
+        "http_status": 200
+      },
+      "tempo": {
+        "available": true,
+        "http_status": 200
+      },
+      "loki": {
+        "available": true,
+        "http_status": 200
+      },
+      "collector": {
+        "available": true,
+        "http_status": 200
+      },
+      "alertmanager": {
+        "available": true,
+        "http_status": 200
+      },
+      "alert_receiver": {
+        "available": true,
+        "http_status": 200
+      }
+    },
+    "scope": "local",
+    "deployments": [
+      {
+        "container": "seckill_user",
+        "image_id": "sha256:c01948dd0ec5ede66fcae14a272f93e7d8a8c1f3bd35ede8cacc383b7e7d91bd",
+        "started_at": "2026-10-03T05:35:00.526782934Z",
+        "running": true,
+        "telemetry_settings": {
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true"
+        }
+      },
+      {
+        "container": "seckill_product_1",
+        "image_id": "sha256:fa1dc884ef571c253234c7e4cdd6e1f20001b5027aa20d2c2d513e9090e7c78a",
+        "started_at": "2026-10-03T05:35:00.522754507Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local"
+        }
+      },
+      {
+        "container": "seckill_product_2",
+        "image_id": "sha256:484c35a4a61a6977a2174ecae3c590a563e2c65e48bf61510f07d40ce6b7d36b",
+        "started_at": "2026-10-03T05:35:00.530890504Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local"
+        }
+      },
+      {
+        "container": "seckill_order_service",
+        "image_id": "sha256:c595adc445c303946b4d2644fe94dbf6fbe3cbd87ad6ef1f703f90eb58e40e76",
+        "started_at": "2026-10-03T06:03:10.746414072Z",
+        "running": true,
+        "telemetry_settings": {
+          "SERVICE_VERSION": "unknown",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SECKILL_TRACING_ENABLED": "true",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1"
+        }
+      },
+      {
+        "container": "seckill_inventory_service",
+        "image_id": "sha256:2f9cf60e12c166942867ecbc5e96eec0800b5dea917e1295d219ee2d1cd38a0b",
+        "started_at": "2026-10-03T06:03:10.738427516Z",
+        "running": true,
+        "telemetry_settings": {
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACING_ENABLED": "true"
+        }
+      },
+      {
+        "container": "seckill_order_worker",
+        "image_id": "sha256:0132718f922f91daa29823f707024d79a633ea46bfd3ceff59d52400c488ae92",
+        "started_at": "2026-10-03T06:03:10.979523321Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACING_ENABLED": "true",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown"
+        }
+      },
+      {
+        "container": "seckill_inventory_worker",
+        "image_id": "sha256:0a46d3ea41fe619e49e25b3da2fd8a448dbb8cf6e29797311440594cac8c52c0",
+        "started_at": "2026-10-03T06:03:10.750390916Z",
+        "running": true,
+        "telemetry_settings": {
+          "SECKILL_TRACING_ENABLED": "true",
+          "OBSERVABILITY_ENVIRONMENT": "local",
+          "SERVICE_VERSION": "unknown",
+          "SECKILL_TRACE_SAMPLE_RATIO": "0.1"
+        }
+      }
+    ],
+    "sampling_policy": "ParentBased TraceIdRatioBased; deployment settings must be checked separately",
+    "production_ready": false
+  },
+  "correlation_samples": []
+}

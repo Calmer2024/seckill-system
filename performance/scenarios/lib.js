@@ -18,6 +18,18 @@ export const PRODUCT_IDS = (__ENV.PRODUCT_IDS || String(PRODUCT_ID))
   .filter((value) => Number.isInteger(value) && value > 0);
 export const USER_ID_START = Number(__ENV.USER_ID_START || 9000001);
 export const USER_COUNT = Number(__ENV.USER_COUNT || 10000);
+let correlationCaptured = false;
+
+export function captureCorrelation(response) {
+  // Bounded samples from actual response headers; gateway may replace client IDs.
+  if (correlationCaptured || __VU > 4) return;
+  const trace = response.headers['X-Trace-Id'];
+  const request = response.headers['X-Request-Id'];
+  if (/^[a-f0-9]{32}$/.test(trace || '') && /^[A-Za-z0-9_-]{1,128}$/.test(request || '')) {
+    correlationCaptured = true;
+    console.log(`OBSERVABILITY_SAMPLE trace_id=${trace} request_id=${request}`);
+  }
+}
 
 export function httpParams(userId = null, tags = {}) {
   const headers = {
@@ -51,6 +63,7 @@ export function orderUserId() {
 }
 
 export function recordProductResponse(response) {
+  captureCorrelation(response);
   check(response, {
     'product response received': (item) => item.status > 0,
     'product response is successful': (item) => item.status === 200,
@@ -58,6 +71,7 @@ export function recordProductResponse(response) {
 }
 
 export function recordInventoryResponse(response) {
+  captureCorrelation(response);
   check(response, {
     'inventory response received': (item) => item.status > 0,
     'inventory response is successful': (item) => item.status === 200,
@@ -65,6 +79,7 @@ export function recordInventoryResponse(response) {
 }
 
 export function recordOrderResponse(response) {
+  captureCorrelation(response);
   const duration = response.timings ? response.timings.duration : 0;
   businessResponseTime.add(duration);
 

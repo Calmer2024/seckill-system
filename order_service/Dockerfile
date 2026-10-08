@@ -6,10 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY order_service/requirements.txt .
+COPY packages/seckill-observability /opt/seckill-observability
+RUN pip install --no-cache-dir -r requirements.txt /opt/seckill-observability
 
-COPY ./app /app/app
+COPY order_service/app /app/app
+RUN python /opt/seckill-observability/build_version.py
 
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser

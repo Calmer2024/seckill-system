@@ -1,0 +1,169 @@
+x-tracing: &tracing
+  SECKILL_TRACING_ENABLED: "${SECKILL_TRACING_ENABLED:-true}"
+  SECKILL_TRACE_SAMPLE_RATIO: "${SECKILL_TRACE_SAMPLE_RATIO:-0.1}"
+  SECKILL_ACCESS_LOG_SAMPLE_RATIO: "${SECKILL_ACCESS_LOG_SAMPLE_RATIO:-0.1}"
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+
+x-observability-logging: &telemetry-logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+services:
+  business-audit:
+    build: ./performance/monitoring/runtime
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.25
+    logging: *telemetry-logging
+    command: [python, evidence.py]
+    ports: ["127.0.0.1:9124:9124"]
+    environment:
+      AUDIT_MYSQL_HOST: mysql-primary
+      AUDIT_MYSQL_USER: observability_audit
+      AUDIT_MYSQL_PASSWORD: "${OBSERVABILITY_AUDIT_PASSWORD:?Set a password for the read-only observability_audit account}"
+  docker-log-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.1
+    logging: *telemetry-logging
+    environment: {CONTAINERS: "1", NETWORKS: "1", INFO: "1", PING: "1", VERSION: "1", POST: "0"}
+    volumes: [/var/run/docker.sock:/var/run/docker.sock:ro]
+    networks: [log_discovery]
+  loki:
+    image: grafana/loki:3.5.3
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    logging: *telemetry-logging
+    command: [-config.file=/etc/loki/config.yml]
+    ports: ["127.0.0.1:3100:3100"]
+    volumes:
+      - ./performance/monitoring/loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/var/loki
+    depends_on:
+      loki-storage-init:
+        condition: service_completed_successfully
+  loki-storage-init:
+    image: busybox:1.37.0
+    profiles: [monitoring]
+    user: "0:0"
+    command: [sh, -c, "chown 10001:10001 /var/loki && chmod 700 /var/loki"]
+    volumes: [loki_data:/var/loki]
+  alloy:
+    image: grafana/alloy:v1.10.2
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *telemetry-logging
+    environment:
+      COMPOSE_PROJECT: "${COMPOSE_PROJECT_NAME:-seckill-system}"
+    command: [run, --stability.level=experimental, --storage.path=/var/lib/alloy, --server.http.listen-addr=0.0.0.0:12345, /etc/alloy/config.alloy]
+    volumes:
+      - ./performance/monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy
+    networks: [default, log_discovery]
+    depends_on: [docker-log-proxy, loki]
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *telemetry-logging
+    command: [--config.file=/etc/alertmanager/config.yml, --storage.path=/alertmanager]
+    ports: ["127.0.0.1:9093:9093"]
+    volumes:
+      - ./performance/monitoring/alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager_data:/alertmanager
+  alert-storage-init:
+    image: busybox:1.37.0
+    profiles: [monitoring]
+    user: "0:0"
+    command: [sh, -c, "chown 65534:65534 /data && chmod 700 /data"]
+    volumes: [alert_notifications:/data]
+  alert-receiver:
+    build: ./performance/monitoring/runtime
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.25
+    logging: *telemetry-logging
+    ports: ["127.0.0.1:9122:9122"]
+    volumes: [alert_notifications:/data]
+    depends_on:
+      alert-storage-init:
+        condition: service_completed_successfully
+  user_service:
+    environment: *tracing
+  product_service_1:
+    environment: *tracing
+  product_service_2:
+    environment: *tracing
+  order_service:
+    environment: *tracing
+  inventory_service:
+    environment: *tracing
+  order_worker:
+    environment: *tracing
+  inventory_worker:
+    environment: *tracing
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: seckill_otel_collector
+    profiles: [monitoring]
+    command: [--config=/etc/otel/config.yml]
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      otel-queue-init:
+        condition: service_completed_successfully
+    ports: ["127.0.0.1:13133:13133"]
+    volumes:
+      - ./performance/monitoring/otel/config.yml:/etc/otel/config.yml:ro
+      - otel_queue:/var/lib/otel
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  otel-queue-init:
+    image: busybox:1.37.0
+    profiles: [monitoring]
+    user: "0:0"
+    command: [sh, -c, "chown 10001:10001 /var/lib/otel && chmod 700 /var/lib/otel"]
+    volumes:
+      - otel_queue:/var/lib/otel
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    container_name: seckill_tempo
+    profiles: [monitoring]
+    command: ["-config.file=/etc/tempo/config.yml"]
+    restart: unless-stopped
+    mem_limit: "${TEMPO_MEMORY_LIMIT:-1g}"
+    environment:
+      GOMEMLIMIT: "${TEMPO_GO_MEMORY_LIMIT:-768MiB}"
+    ports: ["127.0.0.1:3200:3200"]
+    volumes:
+      - ./performance/monitoring/tempo/config.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+volumes:
+  loki_data:
+  alloy_data:
+  alertmanager_data:
+  alert_notifications:
+  otel_queue:
+  tempo_data:
+
+networks:
+  log_discovery:
+    internal: true

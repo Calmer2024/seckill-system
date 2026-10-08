@@ -1,4 +1,4 @@
-import { Icon } from '@iconify/react';
+import { Icon } from '../components/Icon';
 import React, { startTransition, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -101,7 +101,7 @@ export default function OrdersCenter({ session }) {
     return (
       <section className="dream-shell pb-20 pt-32 md:pt-40">
         <div className="mx-auto max-w-[640px] text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f5f5f7] text-[#6e6e73]"><Icon icon="lucide:package" className="h-7 w-7" /></div>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f5f5f7] text-[#6e6e73]"><Icon icon="package" className="h-7 w-7" /></div>
           <h1 className="mt-7 text-[clamp(2.5rem,5vw,4rem)] font-semibold leading-tight tracking-[-0.055em] text-[#1d1d1f]">查看你的订单。</h1>
           <p className="mx-auto mt-4 max-w-md text-base leading-8 text-[#6e6e73]">登录后即可查看订单进度、支付状态，并继续完成待支付订单。</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3"><Link to="/auth?redirect=/orders" className="dream-button-primary">前往登录</Link><Link to="/" className="dream-button-secondary">继续选购</Link></div>

@@ -1,3 +1,4 @@
+from seckill_observability.tracing import trace_response_headers
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -69,6 +70,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=500,
+            headers={"X-Request-ID": request_id, **trace_response_headers()},
             content={
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "系统繁忙，请稍后重试",

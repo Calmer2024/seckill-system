@@ -1,0 +1,475 @@
+{
+  "trace_id": "1702577f275d4ec6c6a695599bf0fa99",
+  "final_status": "CREATED",
+  "database": "isolated SQLite fixtures",
+  "transport": "real local Kafka / Collector / Tempo",
+  "independent_processes": 5,
+  "spans": [
+    {
+      "span_id": "97dc42096daffc4e",
+      "parent_span_id": "",
+      "service": "order-api",
+      "name": "order.submit",
+      "kind": "SPAN_KIND_INTERNAL",
+      "links": [],
+      "start_time_ns": "1791007235270010128",
+      "duration_ms": 19.605243,
+      "status": "ok",
+      "attributes": {}
+    },
+    {
+      "span_id": "ab12f50e7c307c09",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-api",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007235271889967",
+      "duration_ms": 0.09421,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "00b61aa821b3a511",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-api",
+      "name": "INSERT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007235273414013",
+      "duration_ms": 3.532592,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "INSERT"
+      }
+    },
+    {
+      "span_id": "ee4853703737cb8d",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-api",
+      "name": "INSERT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007235278051925",
+      "duration_ms": 0.735135,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "INSERT"
+      }
+    },
+    {
+      "span_id": "7abdd03a36a15083",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-api",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007235286998207",
+      "duration_ms": 0.110394,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "ebfbb6e9f8159ec3",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-api",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007235287959976",
+      "duration_ms": 1.126958,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "9a41c100b8a60e70",
+      "parent_span_id": "97dc42096daffc4e",
+      "service": "order-worker",
+      "name": "outbox.publish",
+      "kind": "SPAN_KIND_INTERNAL",
+      "links": [],
+      "start_time_ns": "1791007237344123334",
+      "duration_ms": 120.489816,
+      "status": "ok",
+      "attributes": {
+        "messaging.message.id": "5eadd365-ce7b-42d7-863f-733f599c57f4",
+        "messaging.destination.name": "p2-validation-20261003140033-orders",
+        "seckill.attempt": "1",
+        "seckill.order_id": "999800001"
+      }
+    },
+    {
+      "span_id": "d485c5a52d93f3ff",
+      "parent_span_id": "9a41c100b8a60e70",
+      "service": "order-worker",
+      "name": "kafka.send",
+      "kind": "SPAN_KIND_PRODUCER",
+      "links": [],
+      "start_time_ns": "1791007237344222975",
+      "duration_ms": 108.610935,
+      "status": "ok",
+      "attributes": {
+        "messaging.system": "kafka",
+        "messaging.destination.name": "p2-validation-20261003140033-orders",
+        "messaging.operation.type": "send",
+        "messaging.message.id": "5eadd365-ce7b-42d7-863f-733f599c57f4",
+        "seckill.order_id": "999800001",
+        "messaging.kafka.partition": "0"
+      }
+    },
+    {
+      "span_id": "74f1f4317b9a6e29",
+      "parent_span_id": "9a41c100b8a60e70",
+      "service": "order-worker",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007237453545781",
+      "duration_ms": 0.073288,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "384c3bde02f57e78",
+      "parent_span_id": "9a41c100b8a60e70",
+      "service": "order-worker",
+      "name": "UPDATE",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007237454353713",
+      "duration_ms": 2.656584,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "UPDATE"
+      }
+    },
+    {
+      "span_id": "b925e599266a432f",
+      "parent_span_id": "d485c5a52d93f3ff",
+      "service": "inventory-worker",
+      "name": "kafka.process",
+      "kind": "SPAN_KIND_CONSUMER",
+      "links": [],
+      "start_time_ns": "1791007242597983163",
+      "duration_ms": 24.688499,
+      "status": "ok",
+      "attributes": {
+        "messaging.system": "kafka",
+        "messaging.destination.name": "p2-validation-20261003140033-orders",
+        "messaging.consumer.group.name": "p2-validation-20261003140033-inventory-group",
+        "messaging.operation.type": "process",
+        "messaging.message.id": "5eadd365-ce7b-42d7-863f-733f599c57f4",
+        "messaging.kafka.partition": "0",
+        "messaging.kafka.offset": "0",
+        "seckill.order_id": "999800001",
+        "seckill.outcome": "processed"
+      }
+    },
+    {
+      "span_id": "d488212fc424be42",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242598393315",
+      "duration_ms": 0.069346,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "d033b8d420e00809",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242599370755",
+      "duration_ms": 1.112998,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "6333e42cafa186ad",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242601198363",
+      "duration_ms": 0.773975,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "4ae1cd76f6b20654",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "UPDATE",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242602969189",
+      "duration_ms": 2.883793,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "UPDATE"
+      }
+    },
+    {
+      "span_id": "c1b650a6a6bd67a8",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "INSERT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242606408059",
+      "duration_ms": 0.635328,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "INSERT"
+      }
+    },
+    {
+      "span_id": "e170161e83bdcf6e",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "UPDATE",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007242607340332",
+      "duration_ms": 0.315731,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "UPDATE"
+      }
+    },
+    {
+      "span_id": "d049b72937f95955",
+      "parent_span_id": "b925e599266a432f",
+      "service": "inventory-worker",
+      "name": "outbox.publish",
+      "kind": "SPAN_KIND_INTERNAL",
+      "links": [],
+      "start_time_ns": "1791007244575513112",
+      "duration_ms": 116.407391,
+      "status": "ok",
+      "attributes": {
+        "messaging.message.id": "000ade67-e0a3-4fec-9a60-202636c726d5",
+        "messaging.destination.name": "p2-validation-20261003140033-inventory",
+        "seckill.attempt": "1",
+        "seckill.order_id": "999800001"
+      }
+    },
+    {
+      "span_id": "358d342bd70bd84c",
+      "parent_span_id": "d049b72937f95955",
+      "service": "inventory-worker",
+      "name": "kafka.send",
+      "kind": "SPAN_KIND_PRODUCER",
+      "links": [],
+      "start_time_ns": "1791007244575610499",
+      "duration_ms": 99.747999,
+      "status": "ok",
+      "attributes": {
+        "messaging.system": "kafka",
+        "messaging.destination.name": "p2-validation-20261003140033-inventory",
+        "messaging.operation.type": "send",
+        "messaging.message.id": "000ade67-e0a3-4fec-9a60-202636c726d5",
+        "seckill.order_id": "999800001",
+        "messaging.kafka.partition": "0"
+      }
+    },
+    {
+      "span_id": "54e99e9a69f0b70e",
+      "parent_span_id": "d049b72937f95955",
+      "service": "inventory-worker",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007244676114911",
+      "duration_ms": 0.07951,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "e10b54cdca78781f",
+      "parent_span_id": "d049b72937f95955",
+      "service": "inventory-worker",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007244677037221",
+      "duration_ms": 1.246543,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "c9606055a2918844",
+      "parent_span_id": "d049b72937f95955",
+      "service": "inventory-worker",
+      "name": "UPDATE",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007244679381423",
+      "duration_ms": 3.426736,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "UPDATE"
+      }
+    },
+    {
+      "span_id": "e58d499df7562e48",
+      "parent_span_id": "358d342bd70bd84c",
+      "service": "order-worker",
+      "name": "kafka.process",
+      "kind": "SPAN_KIND_CONSUMER",
+      "links": [],
+      "start_time_ns": "1791007249756550732",
+      "duration_ms": 23.947952,
+      "status": "ok",
+      "attributes": {
+        "messaging.system": "kafka",
+        "messaging.destination.name": "p2-validation-20261003140033-inventory",
+        "messaging.consumer.group.name": "p2-validation-20261003140033-order-group",
+        "messaging.operation.type": "process",
+        "messaging.message.id": "000ade67-e0a3-4fec-9a60-202636c726d5",
+        "messaging.kafka.partition": "0",
+        "messaging.kafka.offset": "0",
+        "seckill.order_id": "999800001",
+        "seckill.outcome": "processed"
+      }
+    },
+    {
+      "span_id": "57d93e4eb5a16a00",
+      "parent_span_id": "e58d499df7562e48",
+      "service": "order-worker",
+      "name": "CONNECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007249757185047",
+      "duration_ms": 0.094597,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite"
+      }
+    },
+    {
+      "span_id": "c0842c68cb2fe9cc",
+      "parent_span_id": "e58d499df7562e48",
+      "service": "order-worker",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007249759758942",
+      "duration_ms": 1.079824,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "598fe6996ce0ed7c",
+      "parent_span_id": "e58d499df7562e48",
+      "service": "order-worker",
+      "name": "UPDATE",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007249761989200",
+      "duration_ms": 2.616736,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "UPDATE"
+      }
+    },
+    {
+      "span_id": "a72ce626b584b466",
+      "parent_span_id": "e58d499df7562e48",
+      "service": "order-worker",
+      "name": "SELECT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007249765345848",
+      "duration_ms": 0.169536,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "SELECT"
+      }
+    },
+    {
+      "span_id": "16f5a275dab7560b",
+      "parent_span_id": "e58d499df7562e48",
+      "service": "order-worker",
+      "name": "INSERT",
+      "kind": "SPAN_KIND_CLIENT",
+      "links": [],
+      "start_time_ns": "1791007249766313156",
+      "duration_ms": 0.887117,
+      "status": "ok",
+      "attributes": {
+        "db.system": "sqlite",
+        "db.operation": "INSERT"
+      }
+    }
+  ],
+  "link_validation": {
+    "scope": "environment_live",
+    "trace_id": "8326f400ff9e0df65379a3151582e062",
+    "spans": [
+      {
+        "span_id": "5e13cf51e5795fa2",
+        "parent_span_id": "",
+        "service": "order-worker",
+        "name": "outbox.publish",
+        "kind": "SPAN_KIND_INTERNAL",
+        "links": [
+          {
+            "trace_id": "1702577f275d4ec6c6a695599bf0fa99",
+            "span_id": "97dc42096daffc4e",
+            "reason": "delayed"
+          }
+        ],
+        "start_time_ns": "1791007599484724712",
+        "duration_ms": 0.053366,
+        "status": "ok",
+        "attributes": {
+          "messaging.message.id": "5eadd365-ce7b-42d7-863f-733f599c57f4",
+          "messaging.destination.name": "p2-link-validation",
+          "seckill.attempt": "2",
+          "seckill.order_id": "999800001"
+        }
+      }
+    ]
+  }
+}

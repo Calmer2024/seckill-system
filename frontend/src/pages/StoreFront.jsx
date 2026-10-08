@@ -1,6 +1,6 @@
-import { Icon } from '@iconify/react';
+import { Icon } from '../components/Icon';
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard';
 import { productApi } from '../services/productApi';
@@ -17,10 +17,9 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-primary disabled:opacity-35"
+        className="dream-icon-button" aria-label="上一页" title="上一页"
       >
-        <Icon icon="lucide:arrow-left" className="h-4 w-4" />
-        上一页
+        <Icon icon="arrow-left" className="h-4 w-4" />
       </button>
 
       <div className="flex items-center justify-center gap-2">
@@ -30,7 +29,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
             type="button"
             onClick={() => onPageChange(page)}
             className={[
-              'flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-colors',
+              'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-colors',
               page === currentPage ? 'bg-primary text-white' : 'bg-[#F7F7F7] text-primary hover:bg-[#EFEFEF]',
             ].join(' ')}
           >
@@ -43,10 +42,9 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="inline-flex items-center justify-end gap-2 text-sm font-semibold text-primary disabled:opacity-35"
+        className="dream-icon-button" aria-label="下一页" title="下一页"
       >
-        下一页
-        <Icon icon="lucide:arrow-right" className="h-4 w-4" />
+        <Icon icon="arrow-right" className="h-4 w-4" />
       </button>
     </div>
   );
@@ -55,6 +53,11 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
 export default function StoreFront({ session }) {
   const [products, setProducts] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [recommendationPage, setRecommendationPage] = useState(0);
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash === '#product-search') document.getElementById('product-search')?.focus();
+  }, [location]);
   const [suggestions, setSuggestions] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -139,7 +142,8 @@ export default function StoreFront({ session }) {
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const currentPageProducts = filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const recommendedProducts = products.slice(0, 4);
+  const recommendationPages = Math.ceil(products.length / 4);
+  const recommendedProducts = products.slice(recommendationPage * 4, recommendationPage * 4 + 4);
   const categoryCounts = useMemo(() => {
     return products.reduce(
       (result, item) => {
@@ -170,15 +174,16 @@ export default function StoreFront({ session }) {
                 <h1 className="text-[1.35rem] font-semibold tracking-[-0.03em] text-primary md:text-[1.5rem]">Give All You Need</h1>
                 <div className="relative w-full md:max-w-[360px]">
                   <div className="flex items-center gap-3 rounded-full border border-[#E7E7E7] bg-white px-4 py-2.5">
-                    <Icon icon="lucide:search" className="h-4 w-4 text-text-muted" />
+                    <Icon icon="search" className="h-4 w-4 text-text-muted" />
                     <input
+                      id="product-search" aria-label="搜索商品"
                       value={searchKeyword}
                       onChange={(event) => setSearchKeyword(event.target.value)}
                       placeholder="搜索商品"
                       className="w-full bg-transparent text-sm text-primary outline-none placeholder:text-text-muted"
                     />
-                    <button type="button" className="min-w-[86px] rounded-[999px] bg-primary px-5 py-2 text-xs font-semibold text-white">
-                      搜索
+                    <button type="button" className="dream-icon-button" aria-label="搜索商品" title="搜索商品" onClick={() => document.getElementById("product-search")?.focus()}>
+                      <Icon icon="search" />
                     </button>
                   </div>
 
@@ -288,11 +293,11 @@ export default function StoreFront({ session }) {
             <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-primary">探索更多灵感好物</h2>
           </div>
           <div className="flex gap-2">
-            <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary">
-              <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+            <button type="button" className="dream-icon-button" aria-label="上一组推荐" title="上一组推荐" disabled={recommendationPage === 0} onClick={() => setRecommendationPage(page => page - 1)}>
+              <Icon icon="arrow-left" className="h-4 w-4" />
             </button>
-            <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary">
-              <Icon icon="lucide:arrow-right" className="h-4 w-4" />
+            <button type="button" className="dream-icon-button" aria-label="下一组推荐" title="下一组推荐" disabled={recommendationPage >= recommendationPages - 1} onClick={() => setRecommendationPage(page => page + 1)}>
+              <Icon icon="arrow-right" className="h-4 w-4" />
             </button>
           </div>
         </div>

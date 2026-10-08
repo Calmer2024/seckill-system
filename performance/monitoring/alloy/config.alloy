@@ -1,0 +1,77 @@
+discovery.docker "business" {
+  host = "tcp://docker-log-proxy:2375"
+  refresh_interval = "5s"
+}
+discovery.relabel "business" {
+  targets = discovery.docker.business.targets
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex = sys.env("COMPOSE_PROJECT")
+    action = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex = "user_service|product_service_[12]|order_service|inventory_service|order_worker|inventory_worker|frontend_nginx"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(.*)"
+    target_label = "instance"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label = "service"
+  }
+  rule {
+    target_label = "namespace"
+    replacement = "seckill"
+  }
+  rule {
+    target_label = "environment"
+    replacement = "local"
+  }
+}
+loki.source.docker "business" {
+  host = "tcp://docker-log-proxy:2375"
+  targets = discovery.relabel.business.output
+  refresh_interval = "5s"
+  forward_to = [loki.process.business.receiver]
+}
+loki.process "business" {
+  // Plaintext nginx errors/startup output may contain URLs or credentials.
+  // Only our application JSON and allowlisted nginx JSON access logs are shipped.
+  stage.json {
+    expressions = {level = "level"}
+    drop_malformed = true
+  }
+  stage.replace {
+    expression = "(?i)Bearer ([A-Za-z0-9._~+/=-]+)"
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = "(?i)(?:password|passwd|pwd|token|secret|authorization|cookie|api_key)[\\\"' ]*[:=][\\\"' ]*([^\\\"' ,}]+)"
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"
+    replace = "[REDACTED]"
+  }
+  forward_to = [loki.write.local.receiver]
+}
+loki.write "local" {
+  max_streams = 64
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+    batch_size = "256KiB"
+    remote_timeout = "3s"
+    max_backoff_period = "10s"
+    max_backoff_retries = 100
+    queue_config { capacity = "4MiB" }
+  }
+  wal {
+    enabled = true
+    max_segment_age = "1h"
+    drain_timeout = "5s"
+  }
+}

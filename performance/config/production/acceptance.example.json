@@ -1,0 +1,18 @@
+{
+  "environment": "production",
+  "checked_at": "REQUIRED_UTC_TIMESTAMP",
+  "checks": {
+    "same_topology_performance_budget": false,
+    "service_business_consistency": false,
+    "collector_failure_recovery": false,
+    "node_failure_recovery": false,
+    "backend_replica_failure_recovery": false,
+    "external_alert_firing_and_resolved": false,
+    "authentication_and_tenant_isolation": false,
+    "tls_and_secret_rotation": false,
+    "retention_and_restore": false,
+    "cardinality_and_storage_budget": false,
+    "rollback_rehearsal": false
+  },
+  "evidence": {}
+}

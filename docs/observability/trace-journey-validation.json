@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "real_orders_table": true,
+  "real_database_state": "PAID",
+  "real_cross_trace_span_navigation": true,
+  "newest_order_id": "366578080753520640",
+  "paging_and_failure_fixtures": true,
+  "filters_and_url_restore": true,
+  "shared_panel_layout": true,
+  "local_scroll": true,
+  "mobile_tabs": true,
+  "data_modified": false,
+  "screenshot": "C:\\Users\\28109\\AppData\\Local\\Temp\\seckill-orders-panel.png"
+}

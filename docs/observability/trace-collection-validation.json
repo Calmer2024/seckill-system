@@ -1,0 +1,161 @@
+{
+  "checked_at": "2026-10-08T20:35:29+0800",
+  "fixtures": false,
+  "data_reset": false,
+  "sampler_unchanged": true,
+  "requests": 56,
+  "traces": {
+    "product_list": {
+      "trace_id": "31903445499a08cc22cee5d47b323b7a",
+      "version": "source-sha256:050adc935fbf7442",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "42926",
+        "http.route": "/api/products",
+        "seckill.request_id": "8d412e2a556d0f22e8a07bd242cf1868",
+        "seckill.page": "1",
+        "seckill.page_size": "5",
+        "seckill.result_count": "5",
+        "seckill.outcome": "success",
+        "http.status_code": "200"
+      },
+      "business": {
+        "request_id": "8d412e2a556d0f22e8a07bd242cf1868",
+        "page": "1",
+        "page_size": "5",
+        "result_count": "5"
+      },
+      "sql_fingerprints": [
+        "1501e9dfb7c9f224"
+      ]
+    },
+    "product_detail": {
+      "trace_id": "c9614e921c672aeb0e05cc4d2abbe06f",
+      "version": "source-sha256:050adc935fbf7442",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "42926",
+        "http.route": "/api/products/{product_id}",
+        "seckill.request_id": "a09fae139f8460e71562573786773545",
+        "seckill.product_id": "1",
+        "seckill.outcome": "success",
+        "http.status_code": "200"
+      },
+      "business": {
+        "request_id": "a09fae139f8460e71562573786773545",
+        "product_id": "1"
+      },
+      "sql_fingerprints": [
+        "47ae4ee7c099f063"
+      ]
+    },
+    "inventory_detail": {
+      "trace_id": "5bc6f5ed9481d3f9faac1c9f7a07d33c",
+      "version": "source-sha256:33147ce5d6bd69d5",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "54532",
+        "http.route": "/api/inventory/products/{product_id}",
+        "seckill.request_id": "0b15750cbba72e855520c7598760aa3a",
+        "seckill.product_id": "1",
+        "seckill.available_stock": "34",
+        "seckill.reserved_stock": "0",
+        "seckill.sold_stock": "2",
+        "seckill.outcome": "success",
+        "http.status_code": "200"
+      },
+      "business": {
+        "request_id": "0b15750cbba72e855520c7598760aa3a",
+        "product_id": "1"
+      },
+      "sql_fingerprints": [
+        "dd9e500c945b0bfa"
+      ]
+    },
+    "inventory_missing": {
+      "trace_id": "97d6f151471ed9a2b5fafbdd50302838",
+      "version": "source-sha256:33147ce5d6bd69d5",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "54532",
+        "http.route": "/api/inventory/products/{product_id}",
+        "seckill.request_id": "f0fb829d1e9ce4af895f26b2841303ad",
+        "seckill.product_id": "899999999",
+        "seckill.outcome": "rejected",
+        "http.status_code": "404"
+      },
+      "business": {
+        "request_id": "f0fb829d1e9ce4af895f26b2841303ad",
+        "product_id": "899999999"
+      },
+      "sql_fingerprints": [
+        "dd9e500c945b0bfa"
+      ]
+    },
+    "order_list": {
+      "trace_id": "be25a82e3697eb365fc52634aa0cb255",
+      "version": "source-sha256:f8aedfd318056968",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "34660",
+        "http.route": "/api/orders",
+        "seckill.request_id": "afffcb4e4cd0fab105b9438c1a3fb0d6",
+        "seckill.result_count": "0",
+        "seckill.outcome": "success",
+        "http.status_code": "200"
+      },
+      "business": {
+        "request_id": "afffcb4e4cd0fab105b9438c1a3fb0d6",
+        "result_count": "0"
+      },
+      "sql_fingerprints": [
+        "dd14ed4d672b7f6e"
+      ]
+    },
+    "order_missing": {
+      "trace_id": "d651aec34bad15336605c24d86ba441e",
+      "version": "source-sha256:f8aedfd318056968",
+      "root_attributes": {
+        "http.method": "GET",
+        "net.peer.port": "34660",
+        "http.route": "/api/orders/{order_id}",
+        "seckill.request_id": "9e280f12eb0b90f9ae6b0919da77369d",
+        "seckill.order_id": "899999999",
+        "seckill.outcome": "rejected",
+        "http.status_code": "404"
+      },
+      "business": {
+        "request_id": "9e280f12eb0b90f9ae6b0919da77369d",
+        "order_id": "899999999"
+      },
+      "sql_fingerprints": [
+        "d4a371e4a4859522"
+      ]
+    },
+    "order_rejected": {
+      "trace_id": "00c53dc0712dc9d132b145508b7b66b4",
+      "version": "source-sha256:f8aedfd318056968",
+      "root_attributes": {
+        "http.method": "POST",
+        "net.peer.port": "34660",
+        "http.route": "/api/orders/seckill",
+        "seckill.request_id": "d3dca80bdf9805ffcdd7dc26fc09b03e",
+        "seckill.product_id": "899999999",
+        "seckill.quantity": "1",
+        "seckill.outcome": "rejected",
+        "http.status_code": "404"
+      },
+      "business": {
+        "request_id": "d3dca80bdf9805ffcdd7dc26fc09b03e",
+        "product_id": "899999999",
+        "quantity": "1"
+      },
+      "sql_fingerprints": [
+        "787348e30328ca01",
+        "1be2f515b6c344f6"
+      ]
+    }
+  },
+  "lifecycle_nodes": 6,
+  "passed": true
+}

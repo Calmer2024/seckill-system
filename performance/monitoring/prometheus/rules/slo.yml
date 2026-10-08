@@ -1,0 +1,46 @@
+groups:
+  - name: seckill-api-slo
+    interval: 30s
+    rules:
+      - record: seckill:api_error_ratio:5m
+        expr: |
+          (sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__",status=~"5.."}[5m]))
+          or on(service) (0 * sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[5m]))))
+          / sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[5m]))
+      - record: seckill:api_error_ratio:30m
+        expr: |
+          (sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__",status=~"5.."}[30m]))
+          or on(service) (0 * sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[30m]))))
+          / sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[30m]))
+      - record: seckill:api_error_ratio:1h
+        expr: |
+          (sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__",status=~"5.."}[1h]))
+          or on(service) (0 * sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[1h]))))
+          / sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[1h]))
+      - record: seckill:api_error_ratio:6h
+        expr: |
+          (sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__",status=~"5.."}[6h]))
+          or on(service) (0 * sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[6h]))))
+          / sum by(service) (rate(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[6h]))
+      - alert: ApiSloBurnFast
+        expr: |
+          (seckill:api_error_ratio:5m > 14.4 * 0.001)
+          and on(service) (seckill:api_error_ratio:1h > 14.4 * 0.001)
+          and on(service) (sum by(service) (increase(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[5m])) >= 100)
+          and on(service) (sum by(service) (increase(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[1h])) >= 1000)
+        for: 2m
+        labels: {severity: critical, environment: local, slo: api-http-availability}
+        annotations:
+          summary: HTTP availability error budget is burning (fast window)
+          runbook_url: /docs/observability/p4-runbooks.md
+      - alert: ApiSloBurnSlow
+        expr: |
+          (seckill:api_error_ratio:30m > 6 * 0.001)
+          and on(service) (seckill:api_error_ratio:6h > 6 * 0.001)
+          and on(service) (sum by(service) (increase(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[30m])) >= 100)
+          and on(service) (sum by(service) (increase(http_requests_total{service=~"user|product|order|inventory",path!="__unmatched__"}[6h])) >= 1000)
+        for: 2m
+        labels: {severity: warning, environment: local, slo: api-http-availability}
+        annotations:
+          summary: HTTP availability error budget is burning (slow window)
+          runbook_url: /docs/observability/p4-runbooks.md

@@ -1,0 +1,40 @@
+{
+  "receiver": "local durable workbench",
+  "events": [
+    {
+      "received_at": 1791010853.2135718,
+      "labels": {
+        "alertname": "P3NotificationValidation",
+        "environment": "local",
+        "owner": "platform",
+        "service": "p3-validation",
+        "severity": "info"
+      },
+      "annotations": {
+        "summary": "P3 local notification delivery validation (synthetic, no business mutation)"
+      },
+      "status": "resolved",
+      "starts_at": "2026-10-03T06:57:13.214Z",
+      "ends_at": "2026-10-03T07:00:28.214Z",
+      "fingerprint": "9842b0294e2e6386"
+    },
+    {
+      "received_at": 1791010643.2178898,
+      "labels": {
+        "alertname": "P3NotificationValidation",
+        "environment": "local",
+        "owner": "platform",
+        "service": "p3-validation",
+        "severity": "info"
+      },
+      "annotations": {
+        "summary": "P3 local notification delivery validation (synthetic, no business mutation)"
+      },
+      "status": "firing",
+      "starts_at": "2026-10-03T06:57:13.214Z",
+      "ends_at": "0001-01-01T00:00:00Z",
+      "fingerprint": "9842b0294e2e6386"
+    }
+  ],
+  "rule_removed": true
+}

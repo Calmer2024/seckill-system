@@ -57,6 +57,7 @@ class InventoryOutboxEvent(Base):
     topic: Mapped[str] = mapped_column(String(128), nullable=False)
     event_type: Mapped[str] = mapped_column(String(128), nullable=False)
     payload: Mapped[str] = mapped_column(Text, nullable=False)
+    observability_metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="NEW")
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_retry_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)

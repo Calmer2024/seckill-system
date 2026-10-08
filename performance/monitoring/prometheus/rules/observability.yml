@@ -1,0 +1,80 @@
+groups:
+  - name: environment-observability
+    rules:
+      - alert: ObservabilityTargetDown
+        expr: up{job=~"loki|alloy|tempo|otel_collector|alertmanager|alert_receiver|business_audit"} == 0
+        for: 30s
+        labels: {severity: warning, environment: local}
+        annotations:
+          summary: "遥测目标 {{ $labels.job }} 不可用"
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: TelemetryTargetMissing
+        expr: absent(up{job="alloy"}) or absent(up{job="loki"}) or absent(up{job="business_audit"}) or absent(up{job="alertmanager"}) or absent(up{job="alert_receiver"}) or absent(up{job="tempo"}) or absent(up{job="otel_collector"})
+        for: 1m
+        labels: {severity: warning, environment: local, service: observability}
+        annotations:
+          summary: 遥测目标缺失，不能将无数据解释为健康
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: LogDeliveryDropped
+        expr: sum(increase(loki_write_dropped_entries_total[5m])) > 0
+        for: 0s
+        labels: {severity: critical, environment: local, service: alloy}
+        annotations:
+          summary: 集中日志投递出现丢弃
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: LogDeliveryRetrying
+        expr: sum(increase(loki_write_batch_retries_total[5m])) > 0
+        for: 2m
+        labels: {severity: warning, environment: local, service: alloy}
+        annotations:
+          summary: 集中日志投递持续重试，请检查 Loki 和队列
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: TraceDeliveryFailed
+        expr: sum(increase(otelcol_exporter_send_failed_spans[5m])) > 0
+        for: 30s
+        labels: {severity: warning, environment: local, service: otel-collector}
+        annotations:
+          summary: Trace 导出失败，请检查 Collector 和 Tempo
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: BusinessEvidenceStale
+        expr: observability_business_collection_success == 0 or time() - observability_business_last_success_timestamp_seconds > 90
+        for: 30s
+        labels: {severity: warning, environment: local, service: business-audit}
+        annotations:
+          summary: 全环境业务审计失败或过期
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: InventoryNegativeStock
+        expr: (observability_business_inventory_negative_items > 0) and on() (min(observability_business_collection_success) == 1) and on() (time() - max(observability_business_last_success_timestamp_seconds) < 90)
+        for: 30s
+        labels: {severity: critical, environment: local, service: inventory-api}
+        annotations:
+          summary: 库存表存在负库存商品，证据来自全环境一致性快照
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: OutboxBacklogStalled
+        expr: (observability_business_outbox_oldest_age_seconds > 300) and on() (min(observability_business_collection_success) == 1) and on() (time() - max(observability_business_last_success_timestamp_seconds) < 90)
+        for: 2m
+        labels: {severity: warning, environment: local, service: outbox}
+        annotations:
+          summary: "{{ $labels.owner }} Outbox 存在超过五分钟未确认发布的事件"
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: PendingOrderStalled
+        expr: (observability_business_pending_order_oldest_age_seconds > 300) and on() (min(observability_business_collection_success) == 1) and on() (time() - max(observability_business_last_success_timestamp_seconds) < 90)
+        for: 2m
+        labels: {severity: warning, environment: local, service: order-api}
+        annotations:
+          summary: 存在长时间等待库存结果的订单
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: DatabaseConnectionPressure
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 2m
+        labels: {severity: warning, environment: local, service: mysql}
+        annotations:
+          summary: 数据库连接占用超过上限的八成
+          runbook_url: /docs/observability/p3-runbooks.md
+      - alert: AlertNotificationFailed
+        expr: increase(alertmanager_notifications_failed_total[5m]) > 0
+        for: 30s
+        labels: {severity: critical, environment: local, service: alertmanager}
+        annotations:
+          summary: 告警通知发送失败，请同时检查通知接收器
+          runbook_url: /docs/observability/p3-runbooks.md

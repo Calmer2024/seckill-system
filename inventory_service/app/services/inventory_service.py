@@ -1,3 +1,9 @@
+from seckill_observability.messaging import serialize_metadata, retry_metadata, send_event, publish_attempt, processing_message, record_transition, publish_failed, commit_offset, mark_duplicate
+from opentelemetry.instrumentation.utils import suppress_instrumentation
+from seckill_observability.tracing import business_span
+from seckill_observability.context import log_context, message_log_context
+from seckill_observability.worker import WorkerMonitor
+
 import json
 import threading
 import time
@@ -104,6 +110,7 @@ class StockCacheService:
             return
         self.redis_client.set(self.stock_key(item.product_id), int(item.available_stock))
 
+    @business_span("inventory.redis_reserve")
     def reserve_stock(self, user_id: int, product_id: int, order_id: int, quantity: int) -> int:
         return int(
             self.reserve_script(
@@ -213,8 +220,10 @@ class InventoryRepository:
             )
         )
         self.session.commit()
+        record_transition("inventory", "RESERVED")
         return ReservationSnapshot(order_id, user_id, product_id, quantity, "RESERVED")
 
+    @business_span("inventory.cancel")
     def cancel_reservation(self, order_id: int) -> ReservationSnapshot | None:
         reservation = self.get_reservation(order_id)
         if reservation is None:
@@ -242,6 +251,7 @@ class InventoryRepository:
         reservation.status = "CANCELED"
         reservation.failure_reason = "ORDER_ROLLED_BACK"
         self.session.commit()
+        record_transition("inventory", "CANCELED")
         return ReservationSnapshot(
             order_id=reservation.order_id,
             user_id=reservation.user_id,
@@ -251,6 +261,7 @@ class InventoryRepository:
             failure_reason=reservation.failure_reason,
         )
 
+    @business_span("inventory.confirm")
     def confirm_reservation_and_enqueue_result(
         self,
         payload: InventoryResultEvent,
@@ -271,6 +282,7 @@ class InventoryRepository:
             )
 
         if reservation.status == "CONFIRMED":
+            mark_duplicate()
             self.session.rollback()
             return ReservationSnapshot(
                 order_id=reservation.order_id,
@@ -318,10 +330,12 @@ class InventoryRepository:
                     topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
                     event_type="INVENTORY_CONFIRMED",
                     payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    observability_metadata=serialize_metadata(),
                     status="NEW",
                 )
             )
         self.session.commit()
+        record_transition("inventory", "CONFIRMED")
         return ReservationSnapshot(
             order_id=reservation.order_id,
             user_id=reservation.user_id,
@@ -338,6 +352,7 @@ class InventoryRepository:
                     topic=settings.KAFKA_INVENTORY_RESULT_TOPIC,
                     event_type="INVENTORY_RESERVATION_FAILED",
                     payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    observability_metadata=serialize_metadata(),
                     status="NEW",
                 )
             )
@@ -368,6 +383,7 @@ class InventoryRepository:
         if event is None:
             self.session.rollback()
             return
+        event.observability_metadata = retry_metadata()
         event.status = "PUBLISHED"
         event.published_at = utcnow()
         self.session.commit()
@@ -379,6 +395,7 @@ class InventoryRepository:
             return
         retry_count = event.retry_count + 1
         event.retry_count = retry_count
+        event.observability_metadata = retry_metadata()
         event.status = "RETRY"
         event.next_retry_at = utcnow() + timedelta(seconds=min(retry_count * 2, 30))
         self.session.commit()
@@ -389,12 +406,14 @@ class InventoryApplicationService:
         self.repository = InventoryRepository(inventory_db)
         self.stock_cache = StockCacheService(redis_client)
 
+    @business_span('inventory.detail')
     def get_inventory_item(self, product_id: int) -> InventoryItem:
         item = self.repository.get_item(product_id)
         if item is None:
             raise BusinessException("PRODUCT_NOT_FOUND", "库存商品不存在", 404)
         return item
 
+    @business_span("inventory.reserve")
     def reserve_inventory(self, request: InventoryReservationRequest) -> InventoryReservationResponse:
         existing = self.repository.find_active_user_reservation(request.user_id, request.product_id)
         if existing and existing.order_id != request.order_id:
@@ -475,6 +494,7 @@ class InventoryApplicationService:
             message="库存预扣减成功，等待订单服务确认",
         )
 
+    @business_span('inventory.cancel_request')
     def cancel_inventory_reservation(self, order_id: int) -> InventoryReservationResponse:
         snapshot = self.repository.cancel_reservation(order_id)
         if snapshot is None:
@@ -502,12 +522,12 @@ class KafkaEventProducer:
     def __init__(self) -> None:
         self._producer = KafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+            acks="all", enable_idempotence=True, max_block_ms=10000, request_timeout_ms=10000, delivery_timeout_ms=20000,
             value_serializer=lambda value: json.dumps(value, ensure_ascii=False).encode("utf-8"),
         )
 
     def send(self, topic: str, payload: dict) -> None:
-        self._producer.send(topic, payload)
-        self._producer.flush()
+        send_event(self._producer, topic, payload)
 
 
 def ensure_topics_exist() -> None:
@@ -525,7 +545,9 @@ def ensure_topics_exist() -> None:
 
 
 class InventoryOutboxPublisher:
-    def __init__(self, inventory_session_factory) -> None:
+    def __init__(self, inventory_session_factory, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor
+        self.role = "inventory-outbox-publisher"
         self.inventory_session_factory = inventory_session_factory
         self.producer = KafkaEventProducer()
 
@@ -534,32 +556,44 @@ class InventoryOutboxPublisher:
         while True:
             session = self.inventory_session_factory()
             try:
-                events = InventoryRepository(session).list_pending_outbox_events(settings.OUTBOX_PUBLISH_BATCH_SIZE)
+                with suppress_instrumentation():
+                    events = InventoryRepository(session).list_pending_outbox_events(settings.OUTBOX_PUBLISH_BATCH_SIZE)
             finally:
                 session.close()
 
+            if self.monitor:
+                self.monitor.touch(self.role)
             if not events:
                 time.sleep(settings.OUTBOX_POLL_INTERVAL_SECONDS)
                 continue
 
             for event in events:
-                session = self.inventory_session_factory()
-                try:
-                    self.producer.send(event.topic, json.loads(event.payload))
-                    InventoryRepository(session).mark_outbox_published(event.id)
-                except Exception:
-                    session.rollback()
-                    retry_session = self.inventory_session_factory()
+                with publish_attempt(event, "inventory"), log_context(order_id=event.aggregate_id, outbox_record_id=str(event.id), topic=event.topic, attempt=event.retry_count + 1):
+                    session = self.inventory_session_factory()
                     try:
-                        InventoryRepository(retry_session).mark_outbox_retry(event.id)
+                        self.producer.send(event.topic, json.loads(event.payload))
+                        InventoryRepository(session).mark_outbox_published(event.id)
+                        if self.monitor:
+                            self.monitor.touch(self.role, progressed=True)
+                    except Exception:
+                        publish_failed()
+                        logger.exception("outbox publish failed", extra={"event": "outbox.publish_failed"})
+                        session.rollback()
+                        retry_session = self.inventory_session_factory()
+                        try:
+                            InventoryRepository(retry_session).mark_outbox_retry(event.id)
+                        finally:
+                            retry_session.close()
                     finally:
-                        retry_session.close()
-                finally:
-                    session.close()
+                        if self.monitor:
+                            self.monitor.touch(self.role)
+                        session.close()
 
 
 class OrderCreatedConsumer:
-    def __init__(self, inventory_session_factory, redis_client: redis.Redis) -> None:
+    def __init__(self, inventory_session_factory, redis_client: redis.Redis, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor
+        self.role = "inventory-order-created-consumer"
         self.inventory_session_factory = inventory_session_factory
         self.stock_cache = StockCacheService(redis_client)
         self.direct_producer = KafkaEventProducer()
@@ -574,52 +608,62 @@ class OrderCreatedConsumer:
 
     def run(self) -> None:
         logger.info("order created consumer started", extra={"event": "inventory_order_created_consumer_started"})
-        for message in self.consumer:
-            payload = InventoryResultEvent(
-                order_id=message.value["order_id"],
-                user_id=message.value["user_id"],
-                product_id=message.value["product_id"],
-                quantity=message.value["quantity"],
-                status="RESERVED",
-            )
-            session = self.inventory_session_factory()
-            try:
-                snapshot = InventoryRepository(session).confirm_reservation_and_enqueue_result(payload)
-                if settings.ENABLE_REDIS_STOCK_RESERVATION and snapshot.status == "CONFIRMED":
-                    self.stock_cache.mark_confirmed(
-                        user_id=snapshot.user_id,
-                        product_id=snapshot.product_id,
-                        order_id=snapshot.order_id,
-                    )
-                if not settings.ENABLE_INVENTORY_OUTBOX:
-                    self.direct_producer.send(
-                        settings.KAFKA_INVENTORY_RESULT_TOPIC,
-                        InventoryResultEvent(
-                            order_id=snapshot.order_id,
-                            user_id=snapshot.user_id,
-                            product_id=snapshot.product_id,
-                            quantity=snapshot.quantity,
-                            status=snapshot.status,
-                            failure_reason=snapshot.failure_reason,
-                        ).model_dump(mode="json"),
-                    )
-                self.consumer.commit()
-            finally:
-                session.close()
+        while True:
+            batches = self.consumer.poll(timeout_ms=1000, max_records=1)
+            if self.monitor:
+                self.monitor.touch(self.role)
+            for messages in batches.values():
+                for message in messages:
+                    with processing_message(message, self.consumer.config["group_id"], self.role), log_context(group=self.consumer.config["group_id"], **message_log_context(message)):
+                        try:
+                            payload = InventoryResultEvent(
+                                order_id=message.value["order_id"],
+                                user_id=message.value["user_id"],
+                                product_id=message.value["product_id"],
+                                quantity=message.value["quantity"],
+                                status="RESERVED",
+                            )
+                            session = self.inventory_session_factory()
+                            try:
+                                snapshot = InventoryRepository(session).confirm_reservation_and_enqueue_result(payload)
+                                if settings.ENABLE_REDIS_STOCK_RESERVATION and snapshot.status == "CONFIRMED":
+                                    self.stock_cache.mark_confirmed(
+                                        user_id=snapshot.user_id,
+                                        product_id=snapshot.product_id,
+                                        order_id=snapshot.order_id,
+                                    )
+                                if not settings.ENABLE_INVENTORY_OUTBOX:
+                                    self.direct_producer.send(
+                                        settings.KAFKA_INVENTORY_RESULT_TOPIC,
+                                        InventoryResultEvent(
+                                            order_id=snapshot.order_id,
+                                            user_id=snapshot.user_id,
+                                            product_id=snapshot.product_id,
+                                            quantity=snapshot.quantity,
+                                            status=snapshot.status,
+                                            failure_reason=snapshot.failure_reason,
+                                        ).model_dump(mode="json"),
+                                    )
+                                commit_offset(self.consumer, self.role)
+                                if self.monitor:
+                                    self.monitor.touch(self.role, progressed=True)
+                            finally:
+                                session.close()
 
+                        except Exception:
+                            logger.exception("consumer processing failed", extra={"event": "consumer.process_failed"})
+                            raise
 
 class InventoryWorker:
-    def __init__(self, inventory_session_factory, redis_client: redis.Redis) -> None:
-        self.publisher = InventoryOutboxPublisher(inventory_session_factory=inventory_session_factory)
-        self.consumer = OrderCreatedConsumer(
-            inventory_session_factory=inventory_session_factory,
-            redis_client=redis_client,
-        )
+    def __init__(self, inventory_session_factory, redis_client: redis.Redis, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor or WorkerMonitor(("inventory-outbox-publisher", "inventory-order-created-consumer"))
+        self.publisher = InventoryOutboxPublisher(inventory_session_factory, monitor=self.monitor)
+        self.consumer = OrderCreatedConsumer(inventory_session_factory, redis_client, monitor=self.monitor)
 
     def run(self) -> None:
         threads = [
-            threading.Thread(target=self.publisher.run, name="inventory-outbox-publisher", daemon=True),
-            threading.Thread(target=self.consumer.run, name="inventory-order-created-consumer", daemon=True),
+            self.monitor.thread(self.publisher.role, self.publisher.run),
+            self.monitor.thread(self.consumer.role, self.consumer.run),
         ]
         for thread in threads:
             thread.start()

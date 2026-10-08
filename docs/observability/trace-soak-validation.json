@@ -1,0 +1,135 @@
+{
+  "passed": true,
+  "duration_seconds": 181.7,
+  "requests": 28,
+  "sampled_traces_verified": 2,
+  "rounds": [
+    {
+      "round": 1,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 33,
+        "method:POST": 12,
+        "-method:GET": 12,
+        "db_system:mysql": 43
+      }
+    },
+    {
+      "round": 2,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 36,
+        "method:POST": 12,
+        "-method:GET": 12,
+        "db_system:mysql": 44
+      }
+    },
+    {
+      "round": 3,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 37,
+        "method:POST": 12,
+        "-method:GET": 12,
+        "db_system:mysql": 43
+      }
+    },
+    {
+      "round": 4,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 37,
+        "method:POST": 12,
+        "-method:GET": 12,
+        "db_system:mysql": 43
+      }
+    },
+    {
+      "round": 5,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 37,
+        "method:POST": 14,
+        "-method:GET": 14,
+        "db_system:mysql": 43
+      }
+    },
+    {
+      "round": 6,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 40,
+        "method:POST": 14,
+        "-method:GET": 14,
+        "db_system:mysql": 44
+      }
+    },
+    {
+      "round": 7,
+      "health": {
+        "controller": 200,
+        "collector": 200,
+        "tempo": 200,
+        "loki": 200
+      },
+      "query_counts": {
+        "method:GET": 41,
+        "method:POST": 14,
+        "-method:GET": 14,
+        "db_system:mysql": 44
+      }
+    }
+  ],
+  "query_ms": {
+    "min": 0.0,
+    "max": 62.0
+  },
+  "data_reset": false,
+  "sampler_unchanged": true,
+  "trace_ids": [
+    "c2e1ef3997d1dadc08171cdbc8cac110",
+    "8986a4c309a40da905555beb8767bbf1"
+  ],
+  "tempo_after_observation": {
+    "restart_count": 0,
+    "oom_killed": false,
+    "memory_limit_bytes": 1073741824,
+    "go_memory_limit": "768MiB",
+    "max_concurrent_queries": 4,
+    "search_concurrent_jobs": 8
+  },
+  "fixed_issues": [
+    "legacy/current HTTP method and DB system query compatibility",
+    "Tempo OOM restart under 512MiB limit with default query concurrency"
+  ]
+}

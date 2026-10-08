@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "lucide": true,
+  "spans_services_drawers": true,
+  "real_monitoring_charts_and_table": true,
+  "time_and_url_restore": true,
+  "logs_table_and_drawer": true,
+  "runs_table_and_drawer": true,
+  "local_scroll": true,
+  "mobile_layout": true,
+  "failure_and_alert_fixtures": true,
+  "data_modified": false
+}

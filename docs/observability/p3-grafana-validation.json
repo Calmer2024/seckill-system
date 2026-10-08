@@ -1,0 +1,17 @@
+{
+  "dashboard_uids": [
+    "seckill-api-red",
+    "seckill-business",
+    "seckill-dependencies",
+    "seckill-messaging",
+    "seckill-telemetry",
+    "seckill-environment"
+  ],
+  "datasource_uids": [
+    "alertmanager",
+    "loki",
+    "prometheus",
+    "tempo"
+  ],
+  "correlation_templates_verified": true
+}

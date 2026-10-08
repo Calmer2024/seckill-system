@@ -1,0 +1,13 @@
+{
+  "status": "proposed_requires_same_topology_validation",
+  "api_slo": {"target": 0.999, "period_days": 30, "failure": "HTTP 5xx on matched API routes; business success is validated separately", "minimum_requests_short_window": 100, "minimum_requests_long_window": 1000},
+  "head_sampling": {"default_ratio": 0.1, "parent_based": true, "guarantees_all_errors": false},
+  "access_log_sampling": {"successful_unsampled_ratio": 0.1, "always_keep": ["HTTP >= 400", "sampled trace correlation", "business state transitions", "errors"], "existing_deployments_default_ratio": 1.0},
+  "sdk_per_process": {"max_queue_spans": 2048, "max_batch_spans": 256, "export_timeout_seconds": 1, "flush_interval_seconds": 1},
+  "collector_per_replica": {"memory_limit_mib": 256, "processor_limit_mib": 160, "disk_queue_batches": 256, "persistent_queue_pvc_gib": 10},
+  "retention": {"metrics_days": 30, "traces_days": 7, "logs_days": 14, "alerts_days": 30},
+  "ha_replicas": {"collector": 2, "prometheus": 2, "alertmanager": 3, "tempo": 3, "loki": 3},
+  "overhead_gate": {"maximum_rps_loss": 0.05, "maximum_p95_increase": 0.05, "minimum_pairs": 3},
+  "storage_formula": "measured bytes per request * expected daily requests * retention days * replica factor; add WAL/compaction reserve and backend compression measured in target environment",
+  "production_cost": null
+}

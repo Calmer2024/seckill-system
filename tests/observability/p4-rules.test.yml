@@ -1,0 +1,58 @@
+rule_files:
+  - ../../performance/monitoring/prometheus/rules/slo.yml
+evaluation_interval: 30s
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="product",method="GET",path="/api/products",status="200"}'
+        values: '0+960x370'
+      - series: 'http_requests_total{service="product",method="GET",path="/api/products",status="500"}'
+        values: '0+40x370'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: ApiSloBurnFast
+        exp_alerts:
+          - exp_labels: {service: product, severity: critical, environment: local, slo: api-http-availability}
+            exp_annotations: {summary: 'HTTP availability error budget is burning (fast window)', runbook_url: /docs/observability/p4-runbooks.md}
+      - eval_time: 6h
+        alertname: ApiSloBurnSlow
+        exp_alerts:
+          - exp_labels: {service: product, severity: warning, environment: local, slo: api-http-availability}
+            exp_annotations: {summary: 'HTTP availability error budget is burning (slow window)', runbook_url: /docs/observability/p4-runbooks.md}
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="product",method="GET",path="/api/products",status="500"}'
+        values: '0+1x370'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: ApiSloBurnFast
+        exp_alerts: []
+      - eval_time: 6h
+        alertname: ApiSloBurnSlow
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="product",method="GET",path="/api/products",status="409"}'
+        values: '0+1000x370'
+      - series: 'http_requests_total{service="product",method="GET",path="__unmatched__",status="500"}'
+        values: '0+1000x370'
+    promql_expr_test:
+      - expr: seckill:api_error_ratio:5m
+        eval_time: 6h
+        exp_samples:
+          - labels: '{__name__="seckill:api_error_ratio:5m",service="product"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: ApiSloBurnFast
+        exp_alerts: []
+  - interval: 1m
+    input_series: []
+    promql_expr_test:
+      - expr: seckill:api_error_ratio:5m
+        eval_time: 6h
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: ApiSloBurnSlow
+        exp_alerts: []

@@ -1,0 +1,45 @@
+rule_files:
+  - ../../performance/monitoring/prometheus/rules/observability.yml
+  - ../../performance/monitoring/prometheus/rules/performance.yml
+evaluation_interval: 5s
+tests:
+  - interval: 5s
+    input_series:
+      - series: 'observability_business_collection_success{service="business-audit"}'
+        values: '0+0x120'
+      - series: 'observability_business_last_success_timestamp_seconds{service="business-audit"}'
+        values: '0+0x120'
+      - series: 'observability_business_inventory_negative_items'
+        values: '1+0x120'
+      - series: 'kafka_consumergroup_lag{consumergroup="foreign",topic="p2-validation-test"}'
+        values: '5000+0x120'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: InventoryNegativeStock
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: KafkaConsumerLagGrowing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: BusinessEvidenceStale
+        exp_alerts:
+          - exp_labels: {service: business-audit, severity: warning, environment: local}
+            exp_annotations:
+              summary: 全环境业务审计失败或过期
+              runbook_url: /docs/observability/p3-runbooks.md
+  - interval: 5s
+    input_series:
+      - series: 'observability_business_collection_success'
+        values: '1+0x120'
+      - series: 'observability_business_last_success_timestamp_seconds'
+        values: '0+5x120'
+      - series: 'observability_business_inventory_negative_items'
+        values: '1+0x120'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: InventoryNegativeStock
+        exp_alerts:
+          - exp_labels: {service: inventory-api, severity: critical, environment: local}
+            exp_annotations:
+              summary: 库存表存在负库存商品，证据来自全环境一致性快照
+              runbook_url: /docs/observability/p3-runbooks.md

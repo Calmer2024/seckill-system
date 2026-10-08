@@ -1,0 +1,41 @@
+{
+  "verified_at": 1791012028.5103338,
+  "status": "ok",
+  "service_instances": 14,
+  "metrics": [
+    [
+      "http_rate",
+      "ok"
+    ],
+    [
+      "http_p95",
+      "ok"
+    ],
+    [
+      "kafka_lag",
+      "ok"
+    ],
+    [
+      "db_connections",
+      "ok"
+    ],
+    [
+      "outbox_pending",
+      "ok"
+    ],
+    [
+      "negative_stock",
+      "ok"
+    ]
+  ],
+  "business_evidence_fresh": true,
+  "alert_backend": "ok",
+  "notification_store": "ok",
+  "centralized_log_count": 33,
+  "unsafe_filters_rejected": true,
+  "runbook_served": true,
+  "no_active_pressure_run": true,
+  "unit_tests_passed": 36,
+  "all_service_instances_up": true,
+  "temporary_rule_removed": true
+}

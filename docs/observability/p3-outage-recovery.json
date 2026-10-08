@@ -1,0 +1,43 @@
+{
+  "probe": {
+    "trace_id": "4c060c7f6059e41f4205ac747bb530cc",
+    "event_id": "2c1488e8-90d2-4628-a2ed-0027e84f12fa",
+    "request_id": "p3-2c1488e8-90d2-4628-a2ed-0027e84f12fa",
+    "timestamp": "2026-10-03T06:57:36.360033+00:00"
+  },
+  "replayed": true,
+  "logs": {
+    "scope": "environment_live",
+    "environment": "local",
+    "sampled_at": 1791010698,
+    "window_minutes": 15,
+    "limit": 200,
+    "logs": [
+      {
+        "timestamp_ns": "1791010656360464530",
+        "service": "order-worker",
+        "instance": "seckill_order_worker",
+        "fields": {
+          "timestamp": "2026-10-03T06:57:36.360033+00:00",
+          "level": "INFO",
+          "logger": "p3.validation",
+          "message": "P3 validation ${1}[REDACTED][REDACTED] Bearer [REDACTED] [EMAIL] [PHONE]",
+          "event": "p3_validation",
+          "request_id": "p3-2c1488e8-90d2-4628-a2ed-0027e84f12fa",
+          "trace_id": "4c060c7f6059e41f4205ac747bb530cc",
+          "span_id": "7f43fc4b92e864e5",
+          "event_id": "2c1488e8-90d2-4628-a2ed-0027e84f12fa"
+        }
+      }
+    ],
+    "truncated": false
+  },
+  "loki_index_labels": [
+    "environment",
+    "instance",
+    "namespace",
+    "service",
+    "service_name"
+  ],
+  "sensitive_markers_absent_in_raw_loki": true
+}

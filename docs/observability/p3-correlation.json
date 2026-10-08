@@ -1,0 +1,52 @@
+{
+  "probe": {
+    "trace_id": "c740b341a1f6432d1c56887f0e4415ab",
+    "event_id": "3bd9c6d5-08cc-4210-8921-eb1ebf659772",
+    "request_id": "p3-3bd9c6d5-08cc-4210-8921-eb1ebf659772",
+    "timestamp": "2026-10-03T07:00:04.129101+00:00"
+  },
+  "logs": {
+    "scope": "environment_live",
+    "environment": "local",
+    "sampled_at": 1791012028,
+    "window_minutes": 60,
+    "limit": 200,
+    "logs": [
+      {
+        "timestamp_ns": "1791010804129459952",
+        "service": "order-worker",
+        "instance": "seckill_order_worker",
+        "fields": {
+          "timestamp": "2026-10-03T07:00:04.129101+00:00",
+          "level": "INFO",
+          "logger": "p3.validation",
+          "message": "P3 validation password=[REDACTED] Bearer [REDACTED] [EMAIL] [PHONE]",
+          "event": "p3_validation",
+          "request_id": "p3-3bd9c6d5-08cc-4210-8921-eb1ebf659772",
+          "trace_id": "c740b341a1f6432d1c56887f0e4415ab",
+          "span_id": "cdeac285740099cb",
+          "event_id": "3bd9c6d5-08cc-4210-8921-eb1ebf659772"
+        }
+      }
+    ],
+    "truncated": false
+  },
+  "trace": {
+    "trace_id": "c740b341a1f6432d1c56887f0e4415ab",
+    "spans": [
+      {
+        "span_id": "cdeac285740099cb",
+        "parent_span_id": "",
+        "service": "order-worker",
+        "name": "p3.validation",
+        "kind": "SPAN_KIND_INTERNAL",
+        "links": [],
+        "start_time_ns": "1791010804129087712",
+        "duration_ms": 0.246155,
+        "status": "ok",
+        "attributes": {}
+      }
+    ],
+    "scope": "environment_live"
+  }
+}

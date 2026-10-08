@@ -1,0 +1,141 @@
+# Preparation template: provision the TLS Secret and StorageClass before applying.
+# This only deploys Collector HA. Tempo/Loki/Prometheus require the topology in README.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: collector-config, namespace: observability}
+data:
+  config.yaml: |
+    extensions:
+      health_check: {endpoint: '0.0.0.0:13133'}
+      file_storage: {directory: /var/lib/otel}
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: '0.0.0.0:4318'
+            tls:
+              cert_file: /tls/tls.crt
+              key_file: /tls/tls.key
+              client_ca_file: /tls/ca.crt
+    processors:
+      memory_limiter: {check_interval: 1s, limit_mib: 160, spike_limit_mib: 32}
+      batch: {timeout: 1s, send_batch_size: 256, send_batch_max_size: 512}
+      transform/privacy:
+        error_mode: propagate
+        trace_statements:
+          - context: resource
+            statements:
+              - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "service.instance.id", "deployment.environment.name"])
+          - context: span
+            statements:
+              - keep_keys(attributes, ["http.method", "http.request.method", "http.route", "http.status_code", "http.response.status_code", "db.system", "db.system.name", "db.name", "db.namespace", "db.operation", "db.operation.name", "server.address", "server.port", "seckill.outcome", "seckill.error_code", "messaging.system", "messaging.destination.name", "messaging.operation.type", "messaging.message.id", "messaging.consumer.group.name", "messaging.kafka.partition", "messaging.kafka.offset", "seckill.order_id", "seckill.attempt"])
+              - set(status.message, "")
+              - replace_pattern(name, " .*", "") where attributes["db.system"] != nil or attributes["db.system.name"] != nil
+          - context: spanevent
+            statements:
+              - keep_keys(attributes, ["exception.type"])
+    exporters:
+      otlp/tempo:
+        endpoint: tempo-distributor.observability.svc.cluster.local:4317
+        tls:
+          ca_file: /tls/ca.crt
+          cert_file: /tls/tls.crt
+          key_file: /tls/tls.key
+        timeout: 2s
+        sending_queue: {enabled: true, num_consumers: 2, queue_size: 256, storage: file_storage}
+        retry_on_failure: {enabled: true, initial_interval: 1s, max_interval: 10s, max_elapsed_time: 60s}
+    service:
+      extensions: [health_check, file_storage]
+      telemetry:
+        metrics: {address: '0.0.0.0:8888'}
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, transform/privacy, batch]
+          exporters: [otlp/tempo]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: collector-headless, namespace: observability}
+spec:
+  clusterIP: None
+  selector: {app: collector}
+  ports: [{name: otlp-http, port: 4318, targetPort: 4318}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: collector, namespace: observability}
+spec:
+  selector: {app: collector}
+  ports:
+    - {name: otlp-http, port: 4318, targetPort: 4318}
+    - {name: metrics, port: 8888, targetPort: 8888}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: collector, namespace: observability}
+spec:
+  serviceName: collector-headless
+  replicas: 2
+  selector: {matchLabels: {app: collector}}
+  template:
+    metadata: {labels: {app: collector}}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector: {matchLabels: {app: collector}}
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.111.0
+          args: [--config=/etc/otel/config.yaml]
+          ports: [{name: otlp-http, containerPort: 4318}, {name: metrics, containerPort: 8888}]
+          resources:
+            requests: {cpu: 250m, memory: 192Mi}
+            limits: {cpu: '1', memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          readinessProbe: {httpGet: {path: /, port: 13133}, initialDelaySeconds: 5, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /, port: 13133}, initialDelaySeconds: 15, periodSeconds: 10}
+          volumeMounts:
+            - {name: config, mountPath: /etc/otel, readOnly: true}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: queue, mountPath: /var/lib/otel}
+      volumes:
+        - name: config
+          configMap: {name: collector-config}
+        - name: tls
+          secret: {secretName: collector-mtls}
+  volumeClaimTemplates:
+    - metadata: {name: queue}
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: REQUIRED_STORAGE_CLASS
+        resources: {requests: {storage: 10Gi}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: collector, namespace: observability}
+spec: {minAvailable: 1, selector: {matchLabels: {app: collector}}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: collector-ingress, namespace: observability}
+spec:
+  podSelector: {matchLabels: {app: collector}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {observability-client: 'true'}}
+      ports: [{protocol: TCP, port: 4318}]
+    - from:
+        - podSelector: {}
+      ports: [{protocol: TCP, port: 8888}, {protocol: TCP, port: 13133}]

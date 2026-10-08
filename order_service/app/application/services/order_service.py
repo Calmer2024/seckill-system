@@ -1,3 +1,11 @@
+from seckill_observability.messaging import serialize_metadata, retry_metadata, send_event, publish_attempt, processing_message, record_transition, publish_failed, commit_offset, mark_duplicate
+from opentelemetry.instrumentation.utils import suppress_instrumentation
+from seckill_observability.tracing import business_span
+from seckill_observability.context import log_context, message_log_context
+from seckill_observability.worker import WorkerMonitor
+
+from seckill_observability.context import outbound_request_headers, seckill_outcome
+
 import json
 import threading
 import time
@@ -107,6 +115,7 @@ class OrderRepository:
         )
         return self.session.execute(statement).scalar_one_or_none()
 
+    @business_span("order.persist_with_outbox")
     def create_pending_order_and_outbox(
         self,
         event: OrderCreatedEvent,
@@ -131,6 +140,7 @@ class OrderRepository:
                     topic=settings.KAFKA_ORDER_CREATED_TOPIC,
                     event_type="ORDER_CREATED",
                     payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    observability_metadata=serialize_metadata(),
                     status="NEW",
                 )
             )
@@ -143,7 +153,9 @@ class OrderRepository:
                 )
             )
         self.session.commit()
+        record_transition("order", order.status)
 
+    @business_span("payment.request")
     def request_payment(self, order: Order, amount: Decimal) -> tuple[str, str]:
         payment = self.session.get(PaymentRecord, order.order_id)
         if payment and payment.status == "SUCCESS":
@@ -151,12 +163,14 @@ class OrderRepository:
                 order.status = "PAID"
                 order.failure_reason = None
                 self.session.commit()
+                record_transition("order", order.status)
             return order.status, payment.status
 
         if payment and payment.status == "PROCESSING":
             if order.status != "PAYING":
                 order.status = "PAYING"
                 self.session.commit()
+                record_transition("order", order.status)
             return order.status, payment.status
 
         order.status = "PAYING"
@@ -180,21 +194,26 @@ class OrderRepository:
             topic=settings.KAFKA_PAYMENT_TOPIC,
             event_type="PAYMENT_REQUESTED",
             payload=json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+            observability_metadata=serialize_metadata(),
             status="NEW",
         )
         self.session.add(outbox)
         self.session.commit()
+        record_transition("order", order.status)
         return order.status, payment.status
 
+    @business_span("order.apply_inventory_result")
     def mark_inventory_confirmed(self, payload: InventoryResultEvent) -> None:
         order = self.get_by_order_id(payload.order_id)
         if order is None:
             self.session.rollback()
             return
         if order.status in {"CREATED", "PAYING", "PAID"}:
+            mark_duplicate()
             self.session.rollback()
             return
         if order.status == "FAILED":
+            mark_duplicate()
             self.session.rollback()
             return
 
@@ -217,13 +236,16 @@ class OrderRepository:
             )
 
         self.session.commit()
+        record_transition("order", "CREATED")
 
+    @business_span("order.apply_inventory_result")
     def mark_inventory_failed(self, payload: InventoryResultEvent) -> None:
         order = self.get_by_order_id(payload.order_id)
         if order is None:
             self.session.rollback()
             return
         if order.status == "FAILED":
+            mark_duplicate()
             self.session.rollback()
             return
         if order.status == "PAID":
@@ -233,7 +255,9 @@ class OrderRepository:
         order.status = "FAILED"
         order.failure_reason = payload.failure_reason or "INVENTORY_REJECTED"
         self.session.commit()
+        record_transition("order", "FAILED")
 
+    @business_span("payment.apply_result")
     def mark_payment_success(self, payload: PaymentRequestedEvent) -> None:
         order = self.get_by_order_id(payload.order_id)
         if order is None:
@@ -252,11 +276,16 @@ class OrderRepository:
             payment.status = "SUCCESS"
             payment.amount = payload.amount
 
-        if order.status != "PAID":
+        changed = order.status != "PAID"
+        if not changed:
+            mark_duplicate()
+        if changed:
             order.status = "PAID"
             order.failure_reason = None
 
         self.session.commit()
+        if changed:
+            record_transition("order", "PAID")
 
     def list_pending_outbox_events(self, limit: int) -> list[OrderOutboxEvent]:
         now = utcnow()
@@ -281,6 +310,7 @@ class OrderRepository:
             )
             .values(
                 status="PUBLISHED",
+                observability_metadata=retry_metadata(),
                 published_at=utcnow(),
             )
         )
@@ -310,6 +340,7 @@ class OrderRepository:
             )
             .values(
                 retry_count=retry_count,
+                observability_metadata=retry_metadata(),
                 status="RETRY",
                 next_retry_at=utcnow() + timedelta(seconds=min(retry_count * 2, 30)),
             )
@@ -356,7 +387,7 @@ class InventoryServiceClient:
 
     def _post(self, path: str, payload: dict) -> dict:
         try:
-            response = self.client.post(path, json=payload)
+            response = self.client.post(path, json=payload, headers=outbound_request_headers())
         except httpx.HTTPError as exc:
             raise InventoryServiceError("INVENTORY_SERVICE_UNAVAILABLE", "库存服务暂不可用", 503) from exc
 
@@ -392,6 +423,7 @@ class OrderApplicationService:
         self.id_generator = id_generator
         self.direct_producer = direct_producer
 
+    @business_span("order.submit")
     def submit_seckill_order(
         self,
         request: SeckillOrderRequest,
@@ -421,7 +453,7 @@ class OrderApplicationService:
                 confirm_immediately=not async_mode,
             )
         except InventoryServiceError as exc:
-            SECKILL_REQUESTS_TOTAL.labels(exc.code.lower()).inc()
+            SECKILL_REQUESTS_TOTAL.labels(seckill_outcome(exc.code)).inc()
             raise BusinessException(exc.code, exc.message, exc.status_code) from exc
 
         event = OrderCreatedEvent(
@@ -487,6 +519,7 @@ class OrderApplicationService:
             ),
         )
 
+    @business_span('payment.submit')
     def pay_order(
         self,
         order_id: int,
@@ -528,12 +561,12 @@ class KafkaEventProducer:
     def __init__(self) -> None:
         self._producer = KafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+            acks="all", enable_idempotence=True, max_block_ms=10000, request_timeout_ms=10000, delivery_timeout_ms=20000,
             value_serializer=lambda value: json.dumps(value, ensure_ascii=False).encode("utf-8"),
         )
 
     def send(self, topic: str, payload: dict) -> None:
-        self._producer.send(topic, payload)
-        self._producer.flush()
+        send_event(self._producer, topic, payload)
 
 
 def ensure_topics_exist() -> None:
@@ -555,7 +588,9 @@ def ensure_topics_exist() -> None:
 
 
 class OrderOutboxPublisher:
-    def __init__(self, order_session_factory) -> None:
+    def __init__(self, order_session_factory, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor
+        self.role = "order-outbox-publisher"
         self.order_session_factory = order_session_factory
         self.producer = KafkaEventProducer()
 
@@ -565,34 +600,46 @@ class OrderOutboxPublisher:
             session = self.order_session_factory()
             try:
                 repository = OrderRepository(session)
-                events = repository.list_pending_outbox_events(settings.OUTBOX_PUBLISH_BATCH_SIZE)
+                with suppress_instrumentation():
+                    events = repository.list_pending_outbox_events(settings.OUTBOX_PUBLISH_BATCH_SIZE)
             finally:
                 session.close()
 
+            if self.monitor:
+                self.monitor.touch(self.role)
             if not events:
                 time.sleep(settings.OUTBOX_POLL_INTERVAL_SECONDS)
                 continue
 
             for event in events:
-                session = self.order_session_factory()
-                try:
-                    repository = OrderRepository(session)
-                    payload = json.loads(event.payload)
-                    self.producer.send(event.topic, payload)
-                    repository.mark_outbox_published(event)
-                except Exception:
-                    session.rollback()
-                    retry_session = self.order_session_factory()
+                with publish_attempt(event, "order"), log_context(order_id=event.aggregate_id, outbox_record_id=str(event.id), topic=event.topic, attempt=event.retry_count + 1):
+                    session = self.order_session_factory()
                     try:
-                        OrderRepository(retry_session).mark_outbox_retry(event)
+                        repository = OrderRepository(session)
+                        payload = json.loads(event.payload)
+                        self.producer.send(event.topic, payload)
+                        repository.mark_outbox_published(event)
+                        if self.monitor:
+                            self.monitor.touch(self.role, progressed=True)
+                    except Exception:
+                        publish_failed()
+                        logger.exception("outbox publish failed", extra={"event": "outbox.publish_failed"})
+                        session.rollback()
+                        retry_session = self.order_session_factory()
+                        try:
+                            OrderRepository(retry_session).mark_outbox_retry(event)
+                        finally:
+                            retry_session.close()
                     finally:
-                        retry_session.close()
-                finally:
-                    session.close()
+                        if self.monitor:
+                            self.monitor.touch(self.role)
+                        session.close()
 
 
 class InventoryResultConsumer:
-    def __init__(self, order_session_factory) -> None:
+    def __init__(self, order_session_factory, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor
+        self.role = "inventory-result-consumer"
         self.order_session_factory = order_session_factory
         self.consumer = KafkaConsumer(
             settings.KAFKA_INVENTORY_RESULT_TOPIC,
@@ -608,22 +655,36 @@ class InventoryResultConsumer:
             "inventory result consumer started",
             extra={"event": "order_inventory_result_consumer_started"},
         )
-        for message in self.consumer:
-            payload = InventoryResultEvent.model_validate(message.value)
-            session = self.order_session_factory()
-            try:
-                repository = OrderRepository(session)
-                if payload.status == "CONFIRMED":
-                    repository.mark_inventory_confirmed(payload)
-                else:
-                    repository.mark_inventory_failed(payload)
-                self.consumer.commit()
-            finally:
-                session.close()
+        while True:
+            batches = self.consumer.poll(timeout_ms=1000, max_records=1)
+            if self.monitor:
+                self.monitor.touch(self.role)
+            for messages in batches.values():
+                for message in messages:
+                    with processing_message(message, self.consumer.config["group_id"], self.role), log_context(group=self.consumer.config["group_id"], **message_log_context(message)):
+                        try:
+                            payload = InventoryResultEvent.model_validate(message.value)
+                            session = self.order_session_factory()
+                            try:
+                                repository = OrderRepository(session)
+                                if payload.status == "CONFIRMED":
+                                    repository.mark_inventory_confirmed(payload)
+                                else:
+                                    repository.mark_inventory_failed(payload)
+                                commit_offset(self.consumer, self.role)
+                                if self.monitor:
+                                    self.monitor.touch(self.role, progressed=True)
+                            finally:
+                                session.close()
 
+                        except Exception:
+                            logger.exception("consumer processing failed", extra={"event": "consumer.process_failed"})
+                            raise
 
 class PaymentResultConsumer:
-    def __init__(self, order_session_factory) -> None:
+    def __init__(self, order_session_factory, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor
+        self.role = "payment-result-consumer"
         self.order_session_factory = order_session_factory
         self.consumer = KafkaConsumer(
             settings.KAFKA_PAYMENT_TOPIC,
@@ -636,36 +697,41 @@ class PaymentResultConsumer:
 
     def run(self) -> None:
         logger.info("payment consumer started", extra={"event": "order_payment_consumer_started"})
-        for message in self.consumer:
-            payload = PaymentRequestedEvent.model_validate(message.value)
-            session = self.order_session_factory()
-            try:
-                repository = OrderRepository(session)
-                repository.mark_payment_success(payload)
-                self.consumer.commit()
-            finally:
-                session.close()
+        while True:
+            batches = self.consumer.poll(timeout_ms=1000, max_records=1)
+            if self.monitor:
+                self.monitor.touch(self.role)
+            for messages in batches.values():
+                for message in messages:
+                    with processing_message(message, self.consumer.config["group_id"], self.role), log_context(group=self.consumer.config["group_id"], **message_log_context(message)):
+                        try:
+                            payload = PaymentRequestedEvent.model_validate(message.value)
+                            session = self.order_session_factory()
+                            try:
+                                repository = OrderRepository(session)
+                                repository.mark_payment_success(payload)
+                                commit_offset(self.consumer, self.role)
+                                if self.monitor:
+                                    self.monitor.touch(self.role, progressed=True)
+                            finally:
+                                session.close()
 
+                        except Exception:
+                            logger.exception("consumer processing failed", extra={"event": "consumer.process_failed"})
+                            raise
 
 class OrderWorker:
-    def __init__(self, order_session_factory) -> None:
-        self.publisher = OrderOutboxPublisher(order_session_factory=order_session_factory)
-        self.inventory_result_consumer = InventoryResultConsumer(order_session_factory=order_session_factory)
-        self.payment_result_consumer = PaymentResultConsumer(order_session_factory=order_session_factory)
+    def __init__(self, order_session_factory, monitor: WorkerMonitor | None = None) -> None:
+        self.monitor = monitor or WorkerMonitor(("order-outbox-publisher", "inventory-result-consumer", "payment-result-consumer"))
+        self.publisher = OrderOutboxPublisher(order_session_factory, monitor=self.monitor)
+        self.inventory_result_consumer = InventoryResultConsumer(order_session_factory, monitor=self.monitor)
+        self.payment_result_consumer = PaymentResultConsumer(order_session_factory, monitor=self.monitor)
 
     def run(self) -> None:
         threads = [
-            threading.Thread(target=self.publisher.run, name="order-outbox-publisher", daemon=True),
-            threading.Thread(
-                target=self.inventory_result_consumer.run,
-                name="inventory-result-consumer",
-                daemon=True,
-            ),
-            threading.Thread(
-                target=self.payment_result_consumer.run,
-                name="payment-result-consumer",
-                daemon=True,
-            ),
+            self.monitor.thread(self.publisher.role, self.publisher.run),
+            self.monitor.thread(self.inventory_result_consumer.role, self.inventory_result_consumer.run),
+            self.monitor.thread(self.payment_result_consumer.role, self.payment_result_consumer.run),
         ]
         for thread in threads:
             thread.start()

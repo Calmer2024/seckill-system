@@ -1,0 +1,396 @@
+{
+  "scope": "local isolated read-only catalog; 4 VUs; cache disabled; same image and limits",
+  "sampling_ratio": 0.1,
+  "sdk_queue_spans_per_process": 2048,
+  "sdk_export_timeout_seconds": 1,
+  "runs": [
+    {
+      "name": "cold-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:46:01.041802+00:00",
+      "finished_at": "2026-10-03T10:46:24.006563+00:00",
+      "exit_code": 0,
+      "requests": 6437,
+      "rps": 321.15010434621405,
+      "p95_ms": 77.3856464,
+      "p99_ms": 78.73898124,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9462769396533556,
+      "memory_bytes": 338739200,
+      "memory_peak_bytes": 339206144,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "1385e6d2080020a7e2bb90df5eb29ca5",
+          "request_id": "89df49ebb3f6485f96b1a3780eeea039"
+        },
+        {
+          "trace_id": "34ca2bb9183ccec8974d7cf9395f9a1f",
+          "request_id": "4190554afe93410b93e0544f58e912c2"
+        },
+        {
+          "trace_id": "ff34f85c069166805358fc87183e4496",
+          "request_id": "354b5fb252e141d1b8a4c42013bb7118"
+        },
+        {
+          "trace_id": "faa4ffb7fdbef720da94f73ee66aacb3",
+          "request_id": "72bf7683008d490bbecb6b4e11112a00"
+        }
+      ],
+      "raw_file": "hotpath-cold-off.json"
+    },
+    {
+      "name": "cold-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:46:29.673277+00:00",
+      "finished_at": "2026-10-03T10:46:52.668352+00:00",
+      "exit_code": 0,
+      "requests": 5899,
+      "rps": 294.9265829472846,
+      "p95_ms": 77.897521,
+      "p99_ms": 79.27221969999998,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9450979666398646,
+      "memory_bytes": 347738112,
+      "memory_peak_bytes": 348213248,
+      "docker_log_utf8_bytes": 633277,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "5aaf97e1b654e4dbd501b5ae54e6f11b",
+          "request_id": "e3417ceb7c31424aa8559eadba38c424"
+        },
+        {
+          "trace_id": "5db65a4cc80acb3a8fc456d39ed258fd",
+          "request_id": "7b574b7ab95c47c7b57de4cf91adaf6a"
+        },
+        {
+          "trace_id": "6ff31cf3dadb635d1a067ec572ccdfef",
+          "request_id": "c3da3299015144a8ae14ee4e5be4d427"
+        },
+        {
+          "trace_id": "0049a6b509b64637d3f7ca3861266fa8",
+          "request_id": "c481ecc489694a3b91b07634838bb86a"
+        }
+      ],
+      "raw_file": "hotpath-cold-on.json"
+    },
+    {
+      "name": "pair-0-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:46:54.111208+00:00",
+      "finished_at": "2026-10-03T10:47:17.350433+00:00",
+      "exit_code": 0,
+      "requests": 5269,
+      "rps": 263.1673476235331,
+      "p95_ms": 78.3516294,
+      "p99_ms": 79.97463096,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9383701860465117,
+      "memory_bytes": 338845696,
+      "memory_peak_bytes": 339312640,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "2aec30dd4068b1c4f098d12b6a6eefa7",
+          "request_id": "5949f3603c3643358662bdbad764957b"
+        },
+        {
+          "trace_id": "9d7227ffd2f9e5b184f7e0cec0d2e644",
+          "request_id": "b51b8025e3f240c993a54d5683fe9df3"
+        },
+        {
+          "trace_id": "cc81493d7d9b14208459cad28d4e24c9",
+          "request_id": "492b0627c2a2494c9e69509d8d4b6ca4"
+        },
+        {
+          "trace_id": "6222dce39b3a75ca4a299932c9354e8e",
+          "request_id": "5afae6b5e45a4fe8ad498c8baa692088"
+        }
+      ],
+      "raw_file": "hotpath-pair-0-off.json"
+    },
+    {
+      "name": "pair-0-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:47:17.350433+00:00",
+      "finished_at": "2026-10-03T10:47:40.459461+00:00",
+      "exit_code": 0,
+      "requests": 5630,
+      "rps": 281.4575897170696,
+      "p95_ms": 78.0590029,
+      "p99_ms": 79.43668972,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9399742693338582,
+      "memory_bytes": 349224960,
+      "memory_peak_bytes": 349691904,
+      "docker_log_utf8_bytes": 566983,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "92a4cc8a306bcf1daf1a156e97c088c6",
+          "request_id": "72ca3f9983644999bb4838f50699a17a"
+        },
+        {
+          "trace_id": "88622a825c314bf44b50ff80a77e760a",
+          "request_id": "ec89b69521d94b409c387fa63abd2f31"
+        },
+        {
+          "trace_id": "819ebf75bf12b4b54626c46708f313b4",
+          "request_id": "f933828d2c5042c7a3fc91bb922f52f8"
+        },
+        {
+          "trace_id": "2ddd82c6fce7606f310e4f0c53edd02b",
+          "request_id": "1f3993d738694be0b6cbface2ad4e1a2"
+        }
+      ],
+      "raw_file": "hotpath-pair-0-on.json"
+    },
+    {
+      "name": "pair-1-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:47:40.459461+00:00",
+      "finished_at": "2026-10-03T10:48:03.378254+00:00",
+      "exit_code": 0,
+      "requests": 5967,
+      "rps": 298.24344716012,
+      "p95_ms": 77.9242718,
+      "p99_ms": 78.97945876,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9422197807328236,
+      "memory_bytes": 349523968,
+      "memory_peak_bytes": 349990912,
+      "docker_log_utf8_bytes": 617937,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "2db94a423e8153dcc6024ae8237755a3",
+          "request_id": "2e7f200e8d2b49479d575fe0b7c6bd2b"
+        },
+        {
+          "trace_id": "5596b496fd9ffd24bc2a96b222187fab",
+          "request_id": "7bdf72409ae146e481e4bd038e1626c7"
+        },
+        {
+          "trace_id": "895124e107157edd24238a665b9fee31",
+          "request_id": "2b8d22e1e21f4df1a02fd91fa452323a"
+        },
+        {
+          "trace_id": "aac1dfd4482a9512117750760bc9f325",
+          "request_id": "9330d166ab724277a5a129c3165874d5"
+        }
+      ],
+      "raw_file": "hotpath-pair-1-on.json"
+    },
+    {
+      "name": "pair-1-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:48:03.378254+00:00",
+      "finished_at": "2026-10-03T10:48:26.446597+00:00",
+      "exit_code": 0,
+      "requests": 6277,
+      "rps": 312.76293496497806,
+      "p95_ms": 77.7135876,
+      "p99_ms": 78.98292756,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9412662564685259,
+      "memory_bytes": 339496960,
+      "memory_peak_bytes": 340054016,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "6b8cf7271dbddbb1e3dc3908c9fd8146",
+          "request_id": "6949d96ff552425db0fec3b823bd1b47"
+        },
+        {
+          "trace_id": "270061bb01ca343bbc255c02061d389d",
+          "request_id": "557807c28a3541e18c17109fdbfda0da"
+        },
+        {
+          "trace_id": "11ee91310c36997af305207f4d114c59",
+          "request_id": "e41414402c4f45dc9014a43548d1c85c"
+        },
+        {
+          "trace_id": "82e530d6beec8da1f6a46d74f7d5f7b8",
+          "request_id": "f0b05701500941ffad6ce0ba6b5fccdb"
+        }
+      ],
+      "raw_file": "hotpath-pair-1-off.json"
+    },
+    {
+      "name": "pair-2-off",
+      "target": "off",
+      "started_at": "2026-10-03T10:48:26.446597+00:00",
+      "finished_at": "2026-10-03T10:48:49.480329+00:00",
+      "exit_code": 0,
+      "requests": 6571,
+      "rps": 328.20277806786476,
+      "p95_ms": 77.4695035,
+      "p99_ms": 78.58255460000001,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9400254509816728,
+      "memory_bytes": 338464768,
+      "memory_peak_bytes": 340238336,
+      "docker_log_utf8_bytes": 0,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "2deb6924f78624c369365161fa69a14c",
+          "request_id": "1f45468c7abb4557900e59bcbb1fa986"
+        },
+        {
+          "trace_id": "b35ef665b81ed5f4fc68cf4873418cc1",
+          "request_id": "9cfae2bd318c4b02aa3f84136c7ec887"
+        },
+        {
+          "trace_id": "9c18451155f65b68aeb73a71b5f3d376",
+          "request_id": "6b4022f0aa00497cab8275cb315e7b92"
+        },
+        {
+          "trace_id": "a04b0a4e70e084569cea1bfb246f8373",
+          "request_id": "e05212611a7d4827ad4844ad1c0a6530"
+        }
+      ],
+      "raw_file": "hotpath-pair-2-off.json"
+    },
+    {
+      "name": "pair-2-on",
+      "target": "on",
+      "started_at": "2026-10-03T10:48:49.480329+00:00",
+      "finished_at": "2026-10-03T10:49:12.591250+00:00",
+      "exit_code": 0,
+      "requests": 6434,
+      "rps": 320.8972591084902,
+      "p95_ms": 77.40598014999999,
+      "p99_ms": 78.73118668000001,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.937489859376284,
+      "memory_bytes": 350310400,
+      "memory_peak_bytes": 350777344,
+      "docker_log_utf8_bytes": 671055,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "23758710aeec99e0a7017bd48c5a788c",
+          "request_id": "c3f9fb5036b2441ab93c7705bd840d90"
+        },
+        {
+          "trace_id": "d80148b497a8885321423c864f374afe",
+          "request_id": "89c452cd63cc44468218df070757d241"
+        },
+        {
+          "trace_id": "3f122ce2ecd0934eb61b377bdafd67f5",
+          "request_id": "dd49d5aacbd844c7bd3aea7a20ed67ff"
+        },
+        {
+          "trace_id": "7dbefa9bf334c3dde588bedb372b9d70",
+          "request_id": "f80edbd7a86f49b3a9375f96bc35c62a"
+        }
+      ],
+      "raw_file": "hotpath-pair-2-on.json"
+    },
+    {
+      "name": "collector-unavailable",
+      "target": "on",
+      "started_at": "2026-10-03T10:49:13.440643+00:00",
+      "finished_at": "2026-10-03T10:49:36.442873+00:00",
+      "exit_code": 0,
+      "requests": 5917,
+      "rps": 295.81815582632527,
+      "p95_ms": 77.823184,
+      "p99_ms": 79.01490756000001,
+      "error_rate": 0,
+      "cpu_cores_mean": 0.9421817500846441,
+      "memory_bytes": 357289984,
+      "memory_peak_bytes": 357756928,
+      "docker_log_utf8_bytes": 688819,
+      "sdk_queue_overflow_messages": 0,
+      "trace_samples": [
+        {
+          "trace_id": "3477a6d57d48e5243b7e6fa89987a639",
+          "request_id": "ac288ecba99946248ed9c1ce4f7b7137"
+        },
+        {
+          "trace_id": "b51424c96597767361620646084a2938",
+          "request_id": "9716242055af499094b4f4f11973dbe8"
+        },
+        {
+          "trace_id": "42ae2bb14f9b60156a80eb2878da46c6",
+          "request_id": "1396803b253c4443990cb22988cc9551"
+        },
+        {
+          "trace_id": "e1972c6f8f1d19bcdf3575c1562a2011",
+          "request_id": "8c022458417641e7bf354d3c79c0183c"
+        }
+      ],
+      "raw_file": "hotpath-collector-unavailable.json"
+    }
+  ],
+  "fault": {
+    "business_available": true,
+    "trace_recovered": true,
+    "recovered_trace_id": "b9470205599340e8a7c6baf53f12dcb6"
+  },
+  "production_ready": false,
+  "deployments": [
+    {
+      "service": "product-on",
+      "image_id": "sha256:2a27c1c33647e5b112af6200a16b950d5a6a6975adf7f4f689cbb065c9ddc79b",
+      "memory_limit_bytes": 402653184,
+      "nano_cpus": 1000000000,
+      "telemetry_settings": {
+        "SECKILL_ACCESS_LOG_SAMPLE_RATIO": "0.1",
+        "SECKILL_TRACING_ENABLED": "true",
+        "OBSERVABILITY_ENVIRONMENT": "p4-isolated",
+        "SECKILL_OBSERVABILITY_ENABLED": "true",
+        "SECKILL_TRACE_SAMPLE_RATIO": "0.1"
+      }
+    },
+    {
+      "service": "product-off",
+      "image_id": "sha256:2a27c1c33647e5b112af6200a16b950d5a6a6975adf7f4f689cbb065c9ddc79b",
+      "memory_limit_bytes": 402653184,
+      "nano_cpus": 1000000000,
+      "telemetry_settings": {
+        "SECKILL_TRACE_SAMPLE_RATIO": "0.1",
+        "SECKILL_OBSERVABILITY_ENABLED": "false",
+        "OBSERVABILITY_ENVIRONMENT": "p4-isolated",
+        "SECKILL_TRACING_ENABLED": "false",
+        "SECKILL_ACCESS_LOG_SAMPLE_RATIO": "0.1"
+      }
+    }
+  ],
+  "contracts": {
+    "random_404_paths": 100,
+    "unmatched_metric_series": 1,
+    "bounded_route_cardinality": true,
+    "restart_clears_old_multiprocess_counters": true,
+    "requests_before_restart": 29949.0,
+    "requests_after_restart": 1.0,
+    "database_unavailable_http_status": "503",
+    "database_fault_visible": true,
+    "database_recovered": true
+  },
+  "gates": {
+    "measurement_complete": true,
+    "zero_http_errors": true,
+    "median_rps_loss": 0.022259162467735072,
+    "median_p95_increase": -0.0008199787933326208,
+    "overhead_within_5_percent": true,
+    "fault_isolation": true,
+    "cardinality_and_restart": true,
+    "database_fault_and_recovery": true,
+    "production_ready": false,
+    "production_blockers": [
+      "No production cluster validation",
+      "No real external alert delivery validation",
+      "Local shared-host performance is not a production capacity result"
+    ]
+  },
+  "generated_at": "2026-10-03T10:50:11.974919+00:00",
+  "access_log_sample_ratio": 0.1,
+  "successful_db_read_log_level": "DEBUG"
+}

@@ -1,3 +1,9 @@
+x-application-logging: &application-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mysql-primary:
     image: mysql:8.0
@@ -117,9 +123,15 @@ services:
         condition: service_healthy
 
   user_service:
-    build: ./user_service
+    build:
+      context: .
+      dockerfile: user_service/Dockerfile
     container_name: seckill_user
+    logging: *application-logging
     environment:
+      OBSERVABILITY_SERVICE_NAME: user
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       SECRET_KEY: fallback_secret_key_for_dev
       JWT_SECRET_KEY: fallback_secret_key_for_dev
@@ -131,9 +143,15 @@ services:
         condition: service_healthy
 
   product_service_1:
-    build: ./product_service
+    build:
+      context: .
+      dockerfile: product_service/Dockerfile
     container_name: seckill_product_1
+    logging: *application-logging
     environment:
+      OBSERVABILITY_SERVICE_NAME: product
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
       REDIS_HOST: redis
@@ -148,9 +166,15 @@ services:
         condition: service_completed_successfully
 
   product_service_2:
-    build: ./product_service
+    build:
+      context: .
+      dockerfile: product_service/Dockerfile
     container_name: seckill_product_2
+    logging: *application-logging
     environment:
+      OBSERVABILITY_SERVICE_NAME: product
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db
       READ_DATABASE_URL: mysql+pymysql://root:418124@mysql-replica:3306/seckill_db
       REDIS_HOST: redis
@@ -165,9 +189,15 @@ services:
         condition: service_completed_successfully
 
   order_service:
-    build: ./order_service
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
     container_name: seckill_order_service
+    logging: *application-logging
     environment:
+      OBSERVABILITY_SERVICE_NAME: order-api
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
       PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
       INVENTORY_SERVICE_URL: http://inventory_service:8000
@@ -187,10 +217,24 @@ services:
         condition: service_healthy
 
   order_worker:
-    build: ./order_service
+    expose: ["9106"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; p=urllib.request.urlopen('http://127.0.0.1:9106/metrics', timeout=2).read().decode(); raise SystemExit(0 if 'worker_ready 1.0' in p else 1)"]
+      start_period: 30s
+      interval: 15s
+      timeout: 5s
+      retries: 2
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
     container_name: seckill_order_worker
+    logging: *application-logging
     command: ["python", "-m", "app.worker"]
     environment:
+      WORKER_METRICS_PORT: "9106"
+      OBSERVABILITY_SERVICE_NAME: order-worker
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       ORDER_DATABASE_URL: mysql+pymysql://root:root@shardingsphere-proxy:3307/order_db?charset=utf8mb4
       PRODUCT_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/seckill_db?charset=utf8mb4
       INVENTORY_SERVICE_URL: http://inventory_service:8000
@@ -212,9 +256,15 @@ services:
         condition: service_started
 
   inventory_service:
-    build: ./inventory_service
+    build:
+      context: .
+      dockerfile: inventory_service/Dockerfile
     container_name: seckill_inventory_service
+    logging: *application-logging
     environment:
+      OBSERVABILITY_SERVICE_NAME: inventory-api
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -229,10 +279,24 @@ services:
         condition: service_healthy
 
   inventory_worker:
-    build: ./inventory_service
+    expose: ["9106"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; p=urllib.request.urlopen('http://127.0.0.1:9106/metrics', timeout=2).read().decode(); raise SystemExit(0 if 'worker_ready 1.0' in p else 1)"]
+      start_period: 30s
+      interval: 15s
+      timeout: 5s
+      retries: 2
+    build:
+      context: .
+      dockerfile: inventory_service/Dockerfile
     container_name: seckill_inventory_worker
+    logging: *application-logging
     command: ["python", "-m", "app.worker"]
     environment:
+      WORKER_METRICS_PORT: "9106"
+      OBSERVABILITY_SERVICE_NAME: inventory-worker
+      OBSERVABILITY_ENVIRONMENT: "${OBSERVABILITY_ENVIRONMENT:-local}"
+      SERVICE_VERSION: "${SERVICE_VERSION:-unknown}"
       INVENTORY_DATABASE_URL: mysql+pymysql://root:418124@mysql-primary:3306/inventory_db?charset=utf8mb4
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -249,6 +313,7 @@ services:
   frontend_nginx:
     build: ./frontend
     container_name: seckill_nginx
+    logging: *application-logging
     ports:
       - "80:80"
     volumes:

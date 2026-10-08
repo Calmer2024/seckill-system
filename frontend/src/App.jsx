@@ -1,4 +1,4 @@
-import { Icon } from '@iconify/react';
+import { Icon } from './components/Icon';
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -18,7 +18,7 @@ function BrandMark() {
   return (
     <div className="flex items-center gap-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary">
-        <Icon icon="lucide:gem" className="h-4 w-4" />
+        <Icon icon="gem" className="h-4 w-4" />
       </div>
       <div className="dream-brand text-[1.65rem] font-bold leading-none text-primary">Dreamstore</div>
     </div>
@@ -80,18 +80,18 @@ function UserAvatarControl({ session, onLogout, onUploadAvatar }) {
       {session.isAuthenticated ? (
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          className="dream-icon-button flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
           aria-label="用户资料"
         >
-          {activeAvatar ? <img src={activeAvatar} alt="用户头像" className="h-full w-full object-cover" /> : <Icon icon="lucide:user-round" className="h-5 w-5" />}
+          {activeAvatar ? <img src={activeAvatar} alt="用户头像" className="h-full w-full object-cover" /> : <Icon icon="user-round" className="h-5 w-5" />}
         </button>
       ) : (
         <Link
           to="/auth"
-          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
-          aria-label="用户中心"
+          className="dream-icon-button flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#EAEAEA] bg-white text-primary shadow-[0_12px_28px_-24px_rgba(17,24,39,0.28)]"
+          aria-label="用户中心" title="用户中心"
         >
-          <Icon icon="lucide:user-round" className="h-5 w-5" />
+          <Icon icon="user-round" className="h-5 w-5" />
         </Link>
       )}
 
@@ -102,7 +102,7 @@ function UserAvatarControl({ session, onLogout, onUploadAvatar }) {
             <>
               <div className="flex items-start gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F5F5F5] text-primary">
-                  {activeAvatar ? <img src={activeAvatar} alt="当前头像" className="h-full w-full object-cover" /> : <Icon icon="lucide:user-round" className="h-8 w-8" />}
+                  {activeAvatar ? <img src={activeAvatar} alt="当前头像" className="h-full w-full object-cover" /> : <Icon icon="user-round" className="h-8 w-8" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Dreamstore Member</div>
@@ -124,7 +124,7 @@ function UserAvatarControl({ session, onLogout, onUploadAvatar }) {
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">个人头像</div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} aria-label="上传头像图片" />
                 <button type="button" disabled={savingAvatar} onClick={() => fileInputRef.current?.click()} className="dream-button-secondary mt-3 w-full gap-2 disabled:cursor-not-allowed disabled:opacity-60">
-                  <Icon icon="lucide:upload" className="h-4 w-4" />
+                  <Icon icon="upload" className="h-4 w-4" />
                   {savingAvatar ? '上传中…' : activeAvatar ? '更换头像' : '上传头像'}
                 </button>
                 <div className="mt-2 text-xs leading-5 text-text-muted">支持 JPG、PNG、WebP，文件不超过 2 MB。</div>
@@ -144,7 +144,7 @@ function UserAvatarControl({ session, onLogout, onUploadAvatar }) {
             <>
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] text-primary">
-                  <Icon icon="lucide:user-round" className="h-8 w-8" />
+                  <Icon icon="user-round" className="h-8 w-8" />
                 </div>
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">Guest</div>
@@ -200,20 +200,20 @@ function Header({ session, onLogout, onUploadAvatar }) {
             </nav>
 
             <div className="flex items-center gap-2 md:gap-3">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary"
-                aria-label="搜索"
+              <Link
+                to="/#product-search"
+                className="dream-icon-button flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary"
+                aria-label="搜索" title="搜索"
               >
-                <Icon icon="lucide:search" className="h-4 w-4" />
-              </button>
+                <Icon icon="search" className="h-4 w-4" />
+              </Link>
 
               <Link
                 to="/orders"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary"
-                aria-label="购物车"
+                className="dream-icon-button relative flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary"
+                aria-label="购物车" title="查看订单"
               >
-                <Icon icon="lucide:shopping-cart" className="h-4 w-4" />
+                <Icon icon="shopping-cart" className="h-4 w-4" />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent-red" />
               </Link>
 
@@ -286,7 +286,7 @@ function Footer() {
             <div>
               <div className="text-sm font-bold text-primary">社交媒体</div>
               <div className="mt-4 flex gap-3">
-                {['lucide:twitter', 'lucide:facebook', 'lucide:linkedin', 'lucide:instagram'].map((icon) => (
+                {['twitter', 'facebook', 'linkedin', 'instagram'].map((icon) => (
                   <div
                     key={icon}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-primary"
@@ -359,7 +359,7 @@ function Layout({ session, onLogout, onUploadAvatar, children }) {
         <div className="fixed right-4 top-24 z-[70] md:right-6">
           <div className="flex items-center gap-3 rounded-[1.4rem] border border-[#DDEBDD] bg-white px-4 py-3 shadow-[0_20px_42px_-32px_rgba(17,24,39,0.28)]">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EDF7ED] text-[#2F6B3B]">
-              <Icon icon="lucide:check" className="h-4 w-4" />
+              <Icon icon="check" className="h-4 w-4" />
             </span>
             <div>
               <div className="text-sm font-semibold text-primary">登录成功</div>

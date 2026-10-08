@@ -1,0 +1,27 @@
+groups:
+  - name: worker-health
+    rules:
+      - alert: WorkerTargetDown
+        expr: up{job=~"order_worker|inventory_worker"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker metrics endpoint is unavailable: {{ $labels.job }}"
+          runbook: docs/observability/p0.md
+      - alert: WorkerTaskDown
+        expr: worker_task_alive == 0 and on(job, instance) up == 1
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker thread is not running: {{ $labels.role }}"
+          runbook: docs/observability/p0.md
+      - alert: WorkerLoopStalled
+        expr: (time() - worker_loop_last_poll_timestamp_seconds > 60) and on(job, instance, role) worker_task_alive == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker has not completed a poll or publish attempt: {{ $labels.role }}"
+          runbook: docs/observability/p0.md

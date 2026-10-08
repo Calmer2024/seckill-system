@@ -1,4 +1,4 @@
-import { Icon } from '@iconify/react';
+import { Icon } from '../components/Icon';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -7,17 +7,17 @@ import { saveAccessToken } from '../utils/auth';
 
 const benefits = [
   {
-    icon: 'lucide:shield-check',
+    icon: 'shield-check',
     title: '安全登录',
     description: '登录后即可查看订单、继续付款，并安全保存你的购物记录。',
   },
   {
-    icon: 'lucide:zap',
+    icon: 'zap',
     title: '极速秒杀',
     description: '登录后即可直接进入秒杀会场，完成下单、支付与订单追踪。',
   },
   {
-    icon: 'lucide:package-open',
+    icon: 'package-open',
     title: '轻松下单',
     description: '从浏览商品到完成支付，整个购物过程都可以在一个页面里顺畅完成。',
   },
@@ -110,7 +110,7 @@ export default function AuthPortal({ session }) {
               </h2>
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-primary">
-              <Icon icon={isLoginMode ? 'lucide:user-check' : 'lucide:user-plus'} className="h-6 w-6" />
+              <Icon icon={isLoginMode ? 'user-check' : 'user-plus'} className="h-6 w-6" />
             </div>
           </div>
 
@@ -173,7 +173,7 @@ export default function AuthPortal({ session }) {
 
           <div className="mt-5 flex items-center justify-between text-sm text-text-muted">
             <Link to="/" className="inline-flex items-center gap-2 hover:text-primary">
-              <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+              <Icon icon="arrow-left" className="h-4 w-4" />
               返回首页
             </Link>
             <span>欢迎来到 Dreamstore</span>

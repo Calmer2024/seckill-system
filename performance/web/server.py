@@ -15,7 +15,16 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
+
+if __package__:
+    from .observability import get_status as observability_status
+    from .traces import search_traces, trace_detail, trace_summary, trace_lifecycle, search_orders, TraceUnavailable
+    from .signals import search_logs, metrics, alerts, SignalUnavailable
+else:
+    from observability import get_status as observability_status
+    from traces import search_traces, trace_detail, trace_summary, trace_lifecycle, search_orders, TraceUnavailable
+    from signals import search_logs, metrics, alerts, SignalUnavailable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -31,15 +40,34 @@ ALLOWED_FILES = {
     "report.html",
     "validation.json",
     "prometheus.json",
+    "telemetry.json",
     "k6-summary.json",
+    "k6.log",
     "controller.log",
 }
 STATIC_FILES = {
+    "/order-investigation.js": ("order-investigation.js", "text/javascript; charset=utf-8"),
+    "/workspace-unified.js": ("workspace-unified.js", "text/javascript; charset=utf-8"),
+    "/trace-orders.js": ("trace-orders.js", "text/javascript; charset=utf-8"),
+    "/trace-workspace.js": ("trace-workspace.js", "text/javascript; charset=utf-8"),
+    "/trace-panels.js": ("trace-panels.js", "text/javascript; charset=utf-8"),
+    "/trace-controls.js": ("trace-controls.js", "text/javascript; charset=utf-8"),
+    "/trace-explorer.js": ("trace-explorer.js", "text/javascript; charset=utf-8"),
+    "/trace-explorer.css": ("trace-explorer.css", "text/css; charset=utf-8"),
+    "/docs/observability/p4-runbooks.md": ("../../docs/observability/p4-runbooks.md", "text/plain; charset=utf-8"),
+    "/docs/observability/p3-runbooks.md": ("../../docs/observability/p3-runbooks.md", "text/plain; charset=utf-8"),
     "/": ("index.html", "text/html; charset=utf-8"),
     "/index.html": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/controls.js": ("controls.js", "text/javascript; charset=utf-8"),
+    "/controls.css": ("controls.css", "text/css; charset=utf-8"),
+    "/workspace-layout.js": ("workspace-layout.js", "text/javascript; charset=utf-8"),
+    "/observability.js": ("observability.js", "text/javascript; charset=utf-8"),
+    "/signals.js": ("signals.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+    "/workspace.css": ("workspace.css", "text/css; charset=utf-8"),
     "/icons.svg": ("icons.svg", "image/svg+xml"),
+    "/fonts/inter-latin-400.woff2": ("fonts/inter-latin-400.woff2", "font/woff2"),
 }
 
 SCENARIOS: dict[str, dict[str, Any]] = {
@@ -531,6 +559,42 @@ class PerformanceHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/performance/health":
             self.send_json({"status": "ok", "controller": self.server_version})
+            return
+        if path == '/api/observability/orders':
+            try:
+                self.send_json(search_orders(parse_qs(urlparse(self.path).query, keep_blank_values=True)))
+            except ValueError:
+                self.send_json({'error': 'invalid_order_filter'}, status=400)
+            except TraceUnavailable:
+                self.send_json({'error': 'order_backend_unavailable'}, status=503)
+            return
+        if path in {"/api/observability/logs", "/api/observability/metrics", "/api/observability/alerts"}:
+            try:
+                adapter = {"logs": search_logs, "metrics": metrics, "alerts": alerts}[path.rsplit("/", 1)[-1]]
+                self.send_json(adapter(parse_qs(urlparse(self.path).query, keep_blank_values=True)))
+            except ValueError:
+                self.send_json({"error": "invalid_signal_filter"}, status=400)
+            except SignalUnavailable:
+                self.send_json({"error": "signal_backend_unavailable"}, status=503)
+            return
+        if path in {"/api/observability/traces", "/api/performance/observability/traces"} or path.startswith(("/api/observability/traces/", "/api/performance/observability/traces/")):
+            try:
+                if path.endswith('/lifecycle'):
+                    payload = trace_lifecycle(parse_qs(urlparse(self.path).query, keep_blank_values=True))
+                elif path.endswith('/traces'):
+                    payload = search_traces(parse_qs(urlparse(self.path).query, keep_blank_values=True))
+                elif path.endswith('/summary'):
+                    payload = trace_summary(path.rsplit('/', 2)[-2])
+                else:
+                    payload = trace_detail(path.rsplit('/', 1)[-1])
+                self.send_json(payload if payload is not None else {"error": "trace_not_found"}, status=200 if payload is not None else 404)
+            except ValueError:
+                self.send_json({"error": "invalid_trace_filter"}, status=400)
+            except TraceUnavailable:
+                self.send_json({"error": "trace_backend_unavailable"}, status=503)
+            return
+        if path in {"/api/observability/status", "/api/performance/observability/status"}:
+            self.send_json(observability_status())
             return
         if path == "/api/performance/scenarios":
             self.send_json({"scenarios": [{"name": name, **details} for name, details in SCENARIOS.items()]})

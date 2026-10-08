@@ -1,3 +1,5 @@
+from seckill_observability.context import metric_method
+
 from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest, multiprocess
 
 
@@ -24,8 +26,8 @@ PRODUCT_DB_READS_TOTAL = Counter(
 
 
 def record_http_request(method: str, path: str, status: int, duration_seconds: float) -> None:
-    HTTP_REQUESTS_TOTAL.labels("product", method, path, str(status)).inc()
-    HTTP_REQUEST_DURATION_SECONDS.labels("product", method, path).observe(duration_seconds)
+    HTTP_REQUESTS_TOTAL.labels("product", metric_method(method), path, str(status)).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels("product", metric_method(method), path).observe(duration_seconds)
 
 
 def metrics_payload() -> bytes:

@@ -1,0 +1,87 @@
+# Standalone isolation project. Never merge this into the business Compose files.
+x-product: &product
+  image: seckill-p4-product:local
+  build:
+    context: ../..
+    dockerfile: product_service/Dockerfile
+  mem_limit: 384m
+  cpus: 1.0
+  logging:
+    driver: json-file
+    options: {max-size: "5m", max-file: "2"}
+  depends_on:
+    database: {condition: service_healthy}
+  environment: &environment
+    DATABASE_URL: mysql+pymysql://p4:p4-benchmark-only@database:3306/p4_catalog
+    ENABLE_READ_REPLICA: "false"
+    ENABLE_PRODUCT_CACHE: "false"
+    DB_POOL_SIZE: "2"
+    DB_MAX_OVERFLOW: "1"
+    REDIS_HOST: redis
+    CACHE_KEY_PREFIX: p4-validation
+    OBSERVABILITY_ENVIRONMENT: p4-isolated
+    SECKILL_TRACE_SAMPLE_RATIO: "0.1"
+    SECKILL_ACCESS_LOG_SAMPLE_RATIO: "0.1"
+    SECKILL_TRACING_ENABLED: "true"
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://collector:4318/v1/traces
+services:
+  database:
+    image: mysql:8.0
+    mem_limit: 512m
+    cpus: 1.0
+    environment:
+      MYSQL_ROOT_PASSWORD: p4-isolated-root-only
+      MYSQL_DATABASE: p4_catalog
+      MYSQL_USER: p4
+      MYSQL_PASSWORD: p4-benchmark-only
+    command: [--innodb-buffer-pool-size=67108864, --max-connections=40]
+    healthcheck:
+      test: [CMD, mysql, -up4, -pp4-benchmark-only, -e, SELECT 1, p4_catalog]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+  redis:
+    image: redis:7.2
+    mem_limit: 64m
+    command: [redis-server, --maxmemory, 32mb, --maxmemory-policy, allkeys-lru]
+  product-off:
+    <<: *product
+    environment:
+      <<: *environment
+      SECKILL_OBSERVABILITY_ENABLED: "false"
+      SECKILL_TRACING_ENABLED: "false"
+  product-on:
+    <<: *product
+    environment:
+      <<: *environment
+      SECKILL_OBSERVABILITY_ENABLED: "true"
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    user: "0:0"
+    mem_limit: 256m
+    cpus: 0.5
+    command: [--config=/etc/otel/config.yml]
+    volumes:
+      - ../monitoring/otel/config.yml:/etc/otel/config.yml:ro
+      - queue:/var/lib/otel
+  tempo:
+    image: grafana/tempo:2.9.0
+    mem_limit: 384m
+    cpus: 0.5
+    user: "0:0"
+    command: [-config.file=/etc/tempo/config.yml]
+    volumes:
+      - ../monitoring/tempo/config.yml:/etc/tempo/config.yml:ro
+      - traces:/var/tempo
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: [tools]
+    user: "0:0"
+    mem_limit: 256m
+    cpus: 1.0
+    volumes:
+      - ../scenarios/p4-observability.js:/scripts/p4.js:ro
+      - ../../docs/observability/p4-evidence:/results
+volumes:
+  queue:
+  traces:

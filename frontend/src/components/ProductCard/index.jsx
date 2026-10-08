@@ -1,4 +1,4 @@
-import { Icon } from '@iconify/react';
+import { Icon } from '../Icon';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -64,7 +64,7 @@ export default function ProductCard({
           onClick={(event) => event.stopPropagation()}
           className="inline-flex items-center gap-1 text-[#0066cc] hover:underline"
         >
-          {quickActionLabel}<Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
+          {quickActionLabel}<Icon icon="chevron-right" className="h-3.5 w-3.5" />
         </Link>
         <Link
           to={primaryActionTo}

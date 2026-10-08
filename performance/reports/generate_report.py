@@ -85,6 +85,13 @@ def write_html(path: Path, report: dict, rows: list[dict[str, object]]) -> None:
         for row in rows
     )
     status = "PASS" if report["validation"].get("passed") else "FAIL"
+    evidence = report.get("telemetry_evidence", {})
+    evidence_rows = "".join(
+        f"<tr><td>{html.escape(phase)}</td><td>{html.escape(str(evidence[phase].get('captured_at', 'missing')))}</td>"
+        f"<td><code>{html.escape(str(evidence[phase].get('telemetry_source_sha256', 'missing')))}</code></td>"
+        f"<td>{html.escape(', '.join(name for name, value in evidence[phase].get('backends', {}).items() if not value.get('available')) or 'none')}</td></tr>"
+        for phase in ("start", "end") if isinstance(evidence.get(phase), dict)
+    )
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Performance report {html.escape(report['metadata']['run_id'])}</title>
 <style>body{{font-family:Segoe UI,Arial,sans-serif;margin:32px;color:#202124}}h1{{margin-bottom:4px}}table{{border-collapse:collapse;width:100%;margin:16px 0 28px}}th,td{{border:1px solid #d9dce1;padding:8px;text-align:left}}th{{background:#f3f5f7}}.pass{{color:#137333}}.fail{{color:#b3261e}}code{{word-break:break-all}}</style>
@@ -94,6 +101,8 @@ def write_html(path: Path, report: dict, rows: list[dict[str, object]]) -> None:
 <h2>Summary</h2><p class="{status.lower()}"><strong>Business consistency: {status}</strong></p>
 <table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Source</th></tr></thead><tbody>{metric_rows}</tbody></table>
 <h2>Business checks</h2><table><thead><tr><th>Check</th><th>Status</th><th>Actual</th><th>Expected</th></tr></thead><tbody>{check_rows}</tbody></table>
+<h2>Telemetry evidence</h2><table><thead><tr><th>Phase</th><th>Captured UTC</th><th>Source SHA256</th><th>Unavailable backends</th></tr></thead><tbody>{evidence_rows}</tbody></table>
+<p><a href="telemetry.json">Download immutable run evidence</a>. These are boundary snapshots, not proof of uninterrupted collection. Missing evidence is unavailable, not zero. Monitoring, Trace and logs remain independent environment pages.</p>
 <h2>Test boundary</h2><p>This result describes the configured local Docker environment. It is not a production capacity claim. The load generator, services, database, Redis, Kafka, and monitoring may share one Docker Desktop host.</p>
 </body></html>"""
     path.write_text(document, encoding="utf-8")
@@ -104,6 +113,7 @@ def main() -> None:
     parser.add_argument("--k6-summary", required=True)
     parser.add_argument("--validation", required=True)
     parser.add_argument("--metrics")
+    parser.add_argument("--telemetry")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--scenario", required=True)
@@ -114,6 +124,9 @@ def main() -> None:
     summary = read_json(args.k6_summary, {})
     validation = read_json(args.validation, {"passed": False, "checks": []})
     observability = read_json(args.metrics, {"available": False, "metrics": {}})
+    telemetry = read_json(args.telemetry, {"available": False})
+    if telemetry.get("run_id") not in (None, args.run_id):
+        raise ValueError("Telemetry snapshot belongs to a different run")
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -149,6 +162,7 @@ def main() -> None:
         },
         "validation": validation,
         "observability": observability,
+        "telemetry_evidence": telemetry,
     }
 
     if args.compare_to:

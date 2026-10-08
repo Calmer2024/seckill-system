@@ -1,3 +1,8 @@
+from seckill_observability.tracing import trace_response_headers
+from seckill_observability.tracing import configure_tracing
+from seckill_observability.http import RequestContextMiddleware
+from seckill_observability.logging import configure_logging
+
 import os
 import re
 from io import BytesIO
@@ -7,7 +12,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import NoSuchTableError
@@ -22,6 +27,8 @@ import models
 import schemas
 from database import engine, get_db
 from observability.metrics import metrics_payload, record_http_request
+
+configure_logging(os.getenv("LOG_LEVEL", "INFO"), "user")
 
 # ================= 数据库轻量迁移 =================
 def ensure_user_schema():
@@ -132,24 +139,14 @@ def metrics() -> Response:
     return Response(content=metrics_payload(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.middleware("http")
-async def request_metrics_middleware(request: Request, call_next):
-    import time
+app.add_middleware(RequestContextMiddleware, record_http_request=record_http_request)
 
-    start_time = time.perf_counter()
-    try:
-        response = await call_next(request)
-    except Exception:
-        route = request.scope.get("route")
-        metric_path = getattr(route, "path", request.url.path)
-        if metric_path != "/metrics":
-            record_http_request(request.method, metric_path, 500, time.perf_counter() - start_time)
-        raise
-    route = request.scope.get("route")
-    metric_path = getattr(route, "path", request.url.path)
-    if metric_path != "/metrics":
-        record_http_request(request.method, metric_path, response.status_code, time.perf_counter() - start_time)
-    return response
+
+@app.exception_handler(Exception)
+async def handle_unexpected_exception(request: Request, exc: Exception):
+    request_id = getattr(request.state, "request_id", "")
+    return JSONResponse(status_code=500, headers={"X-Request-ID": request_id, **trace_response_headers()},
+                        content={"detail": "Internal Server Error", "request_id": request_id})
 # =========================================================
 
 # ================= API 路由接口 =================
@@ -253,3 +250,5 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+configure_tracing(app, "user", (engine,))

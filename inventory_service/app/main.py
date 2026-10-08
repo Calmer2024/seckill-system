@@ -1,8 +1,9 @@
-import time
-import uuid
+from seckill_observability.tracing import configure_tracing
+from seckill_observability.http import RequestContextMiddleware
+
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST
@@ -47,38 +48,6 @@ def metrics() -> Response:
     return Response(content=metrics_payload(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.middleware("http")
-async def request_context_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
-    request.state.request_id = request_id
-    start_time = time.perf_counter()
+app.add_middleware(RequestContextMiddleware, record_http_request=record_http_request, logger=logger)
 
-    try:
-        response = await call_next(request)
-    except Exception:
-        route = request.scope.get("route")
-        metric_path = getattr(route, "path", request.url.path)
-        if metric_path != "/metrics":
-            record_http_request(request.method, metric_path, 500, time.perf_counter() - start_time)
-        raise
-
-    route = request.scope.get("route")
-    metric_path = getattr(route, "path", request.url.path)
-    duration_seconds = time.perf_counter() - start_time
-    duration_ms = round(duration_seconds * 1000, 2)
-    if metric_path != "/metrics":
-        record_http_request(request.method, metric_path, response.status_code, duration_seconds)
-
-    logger.info(
-        "request completed",
-        extra={
-            "event": "http_access",
-            "request_id": request_id,
-            "path": request.url.path,
-            "method": request.method,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-        },
-    )
-    response.headers["X-Request-ID"] = request_id
-    return response
+configure_tracing(app, "inventory-api", (inventory_engine,))
